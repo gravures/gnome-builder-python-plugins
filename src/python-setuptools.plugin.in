@@ -1,0 +1,9 @@
+[Plugin]
+Name=Python Setuptools Build
+Author=Gilles Coissac
+Loader=python3
+Module=python-setuptools-plugin
+Depends=editor;buildui;
+X-Project-File-Filter-Name=Python (pyproject.toml)
+X-Project-File-Filter-Pattern=pyproject.toml,setup.cfg,setup.py
+X-Builder-ABI=@abi_version@
