@@ -5,9 +5,13 @@ project('gnome-builder-setuptools-plugin',
 )
 
 
+# Requirements
+# external python modules that are required by our plugin
+builder_required_version='3.32'
+python_modules = ['setuptools=52.0', 'build=0.1.0', 'pip=20.3']
+
 # plugin obviously depends on gnome-builder
 gnome_builder = find_program('gnome-builder', required: true)
-builder_required_version='3.38'
 
 if not gnome_builder.found()
 	error('Error: gnome-builder not found')
@@ -27,26 +31,25 @@ else
 endif
 
 
-# external python modules that are required by our plugin
-python_modules = ['build']
-
 # instalation paths
 prefix = get_option('prefix')
 datadir = join_paths(prefix, get_option('datadir'))
 plugindir = join_paths(datadir, 'gnome-builder/plugins/python-setuptools-plugin')
 
 # check python required dependency
-pymod = import('python')
-if meson.version().version_compare('>=0.51')
-    py3 = pymod.find_installation(modules: python_modules)
-else
-    py3 = pymod.find_installation()
-endif
-foreach module: python_modules
-    if run_command(py3, '-c', 'import @0@'.format(module)).returncode() != 0
-        error('Failed to find required python module \'@0@\'.'.format(module))
+foreach module_desc: python_modules
+	module_desc = module_desc.split('=')
+	module = module_desc[0]
+	require = module_desc[1]
+	ret = run_command(files('check_python_dep'), module, require)
+    if ret.returncode() != 0
+    	if ret.stderr() == ''
+        	error('Failed to find required python module @0@'.format(module))
+        else
+        	error('Find python module @0@=@1@, but require version=@2@'.format(module, ret.stderr(), require))
+        endif
 	else
-		message('Founded python module \'@0@\'.'.format(module))
+		message('Founded python module @0@=@1@'.format(module, ret.stdout()))
     endif
 endforeach
 
