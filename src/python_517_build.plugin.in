@@ -1,0 +1,10 @@
+[Plugin]
+Name=Python 517 Build System
+Description=Provides integration with the Python PEP 517 Build system
+Author=Gilles Coissac
+Loader=python3
+Module=python_517_build_plugin
+Depends=editor;buildui;
+X-Project-File-Filter-Name=Python 517_Build
+X-Project-File-Filter-Pattern=pyproject.toml
+X-Builder-ABI=@abi_version@

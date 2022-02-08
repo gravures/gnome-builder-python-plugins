@@ -36,13 +36,13 @@ directory name.
 To build or re-build after code-changes, run:
 
 ```
-$ meson --reconfigure build
+$ meson --reconfigure --prefix=~/.local build
 ```
 
 To install, run:
 
 ```
-$ cd build && meson install
+$ meson install -C build
 ```
 
 
