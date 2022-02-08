@@ -8,7 +8,10 @@ project('gnome-builder-setuptools-plugin',
 # Requirements
 # external python modules that are required by our plugin
 builder_required_version='3.32'
-python_modules = ['setuptools=52.0', 'build=0.1.0', 'pip=20.3']
+python_modules = ['setuptools=52.0',
+                  'build=0.1.0',
+                  'pip=20.3',
+                  'tomli=1.2']
 
 # plugin obviously depends on gnome-builder
 gnome_builder = find_program('gnome-builder', required: true)
@@ -34,7 +37,7 @@ endif
 # instalation paths
 prefix = get_option('prefix')
 datadir = join_paths(prefix, get_option('datadir'))
-plugindir = join_paths(datadir, 'gnome-builder/plugins/python-setuptools-plugin')
+plugindir = join_paths(datadir, 'gnome-builder/plugins/python_517_build_plugin')
 
 # check python required dependency
 foreach module_desc: python_modules
@@ -59,7 +62,7 @@ subdir('src')
 install_subdir(
 	'src',
 	install_dir: plugindir,
-	exclude_files: ['python-setuptools.plugin.in', 'meson.build'],
+	exclude_files: ['python_517_build.plugin.in', 'meson.build'],
 	strip_directory: true,
 )
 
