@@ -171,7 +171,6 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
         tree follows the format and conventions of the specified backend
         (as such no setup.py is needed unless the backend requires it).
         """
-        print("\nPython517Build._on_load_pyproject_toml()")
 
         try:
             ok, contents, _etag = project_file.load_contents_finish(result)
@@ -271,8 +270,7 @@ class Python517BuildStage(Ide.PipelineStage):
     def do_build_async(self, pipeline, cancellable, callback, data):
         """This is a asynchronous build stage.
         """
-        task = Ide.Task.new(self, cancellable, callback, data)
-        #task.set_source_tag(self.do_build_async)
+        task = Ide.Task.new(self, cancellable, callback)
         task.set_priority(GLib.PRIORITY_LOW)
 
         srcdir = pipeline.get_srcdir()
@@ -311,7 +309,7 @@ class Python517BuildStage(Ide.PipelineStage):
             return
         task.return_boolean(True)
 
-    def _notify_completed_cb(self, task, _p):
+    def _notify_completed_cb(self, task, _pspec):
         self.set_active(False)
 
     def do_build_finish(self, task):
@@ -323,8 +321,7 @@ class Python517BuildStage(Ide.PipelineStage):
         clean operation (often before a "rebuild"), this function
         will be executed. Use it to delete stale directories, etc.
         """
-        task = Ide.Task.new(self, cancellable, callback, data)
-        #task.set_source_tag(self.do_clean_async)
+        task = Ide.Task.new(self, cancellable, callback)
         task.set_priority(GLib.PRIORITY_LOW)
 
         task.connect("notify::completed", self._notify_completed_cb)
@@ -335,13 +332,21 @@ class Python517BuildStage(Ide.PipelineStage):
             -1,
         )
 
-        build_dir = Path(self.pipeline.get_builddir())
+        build_dir = Path(pipeline.get_builddir())
         if build_dir.is_dir():
-            files = [child for child in p.iterdir()]
+            files = [child for child in build_dir.iterdir()]
             for file in files:
                 if file.is_file():
+                    self.log(
+                        Ide.BuildLogStream.STDOUT, f"deleting {file.name}",-1,
+                    )
                     file.unlink()
                 if file.is_dir():
+                    self.log(
+                        Ide.BuildLogStream.STDOUT,
+                        f"deleting {file.name} directory tree",
+                        -1,
+                    )
                     shutil.rmtree(file, ignore_errors=True)
         task.return_boolean(True)
 
@@ -366,7 +371,7 @@ class Python517BuildStage(Ide.PipelineStage):
         # This will run on every request to run the phase
         self.set_completed(False)
 
-    def do_chain(self, next):
+    def do_chain(self, _next):
         """
         Sometimes, you have build stages that are next to
         each other in the pipeline and they can be coalesced
