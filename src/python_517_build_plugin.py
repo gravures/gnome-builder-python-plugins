@@ -205,6 +205,14 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
         return 500
 
     def add_build(self, file):
+        """Register a build artifact.
+
+        The artifact will be add only if its kind is supported
+        by the Build Backend.
+
+        Args:
+            file(pathlib.Path): the artifact to register.
+        """
         if file.is_dir() \
            and BuildType.TREE in self.props.build_backend.get_build_types():
             self.props.builds[file.name] = BuildType.TREE
@@ -222,15 +230,31 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
             self.props.builds[file.name] = BuildType.FILE
 
     def clean_builds(self):
+        """Unregister all build artifact.
+
+        This actually does not remove any files from the build directory,
+        this only clear the artifact register dictionary.
+        """
         self.props.builds.clear()
 
     def get_builds_installable(self):
-        # TODO: study proprity of installable, what about egg and file
+        """Return a list of installable artifacts.
+
+        Return a list of artifacts resulting from previous build stage that
+        could be installable. If pip version>=21.1 or if a setup.py file
+        exist, a pseudo artifact representing the project source tree
+        is added to authorize install in editable mode.
+
+        Return(list): a list of tuple(file, BuildType, artifact name).
+        """
+        # FIXME: if pip<21.1 and no setup.py don't add editable install
         b_inst = [(self.get_context().ref_workdir().get_path(),
                    BuildType.TREE,
                    "sources")]
         installable = None
         name = "Unknown"
+
+        # TODO: study priority of installable, what about egg and file
         if BuildType.WHEEL in self.props.builds.values():
             installable = BuildType.WHEEL
         elif BuildType.SDIST in self.props.builds.values():
@@ -247,6 +271,15 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
         return b_inst
 
     def get_virtual_env(self):
+        """Return a virtualenv for this project.
+
+        This method looks for a variable 'VIRTUAL_ENV' in global environment
+        or one defined in the configuration ui. If the path is a valid
+        directory the virtualenv will be updated with pip, otherwise env will
+        be created. If no 'VIRTUAL_ENV' variable was found None will be returned.
+
+        Returns(pathlib.Path): A Path to a virtualenv or None.
+        """
         context = self.get_context()
         config_manager = Ide.ConfigManager.from_context(context)
         config = config_manager.get_current()
