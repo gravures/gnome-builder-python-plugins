@@ -30,6 +30,7 @@ class BuildType(Enum):
 
 
 class Python517BuildBackend(ABC):
+    # TODO: c extension build_ext
 
     def get_name(self):
         """Return the canonic name of the backend."""
@@ -51,7 +52,11 @@ class Python517BuildBackend(ABC):
 
     @abstractmethod
     def get_builddir_name(self):
-        return "build"
+        """Get the name of the build directory.
+
+        Returns(str): name of directory.
+        """
+        return "dist"
 
     def get_builddir(self, root_dir):
         """A method returning the path used as the build directory
@@ -65,16 +70,34 @@ class Python517BuildBackend(ABC):
         return root_dir.get_child(self.get_builddir_name())
 
     @abstractmethod
-    def get_build_argv(self):
-        """Gets the arguments used to run the build.
+    def get_build_cmd(self):
+        """Gets the arguments used to build a sdist.
 
-        Returns(list): a list containing the arguments to run the build.
+        Returns(list): a list containing the arguments to run.
         """
         pass
 
     @abstractmethod
-    def get_clean_argv(self):
-        """."""
+    def get_wheel_cmd(self):
+        """Gets the arguments used to build a wheel.
+
+        Returns(list): a list containing the arguments to run.
+        """
+        pass
+
+    def get_clean_cmd(self):
+        """Gets the arguments used to clean the builds.
+
+        Returns(list): a list containing the arguments to run or None.
+        """
+        return None
+
+    @abstractmethod
+    def has_isolation(self):
+        """Is this build Backend run natively in a virtual env.
+
+        Returns(bool): True if Backend has isolation.
+        """
         pass
 
 
@@ -90,7 +113,7 @@ class PypaBuildBackend(Python517BuildBackend):
     def get_builddir_name(self):
         return "dist"
 
-    def get_build_argv(self):
+    def get_build_cmd(self):
         return ["python",
                 "-m",
                 "build",
@@ -99,6 +122,13 @@ class PypaBuildBackend(Python517BuildBackend):
                 self.get_builddir_name(),
         ]
 
-    def get_clean_argv(self):
-        # TODO: develop
-        return []
+    def get_wheel_cmd(self):
+        return ["python",
+                "-m",
+                "build",
+                "--outdir",
+                self.get_builddir_name(),
+        ]
+
+    def has_isolation(self):
+        return True

@@ -44,13 +44,21 @@ class Python517BuildStage(Ide.PipelineStage):
         srcdir = pipeline.get_srcdir()
         launcher = pipeline.create_launcher()
         launcher.set_cwd(srcdir)
-        for arg in self.backend.get_build_argv():
+
+        context = pipeline.get_context()
+        build_system = Ide.BuildSystem.from_context(context)
+        if not self.backend.has_isolation():
+           _venv = build_system.get_virtual_env():
+
+        for i, arg in enumerate(self.backend.get_build_cmd()):
+            if i==0 and _venv:
+                arg = f"{_venv}/bin/{arg}"
             launcher.push_argv(arg)
 
         task.connect("notify::completed", self._build_completed_cb)
         self.set_active(True)
         pipeline.attach_pty(launcher)
-        self.log(Ide.BuildLogStream.STDOUT, " ".join(self.backend.get_build_argv()), -1)
+        self.log(Ide.BuildLogStream.STDOUT, " ".join(self.backend.get_build_cmd()), -1)
 
         # launch the process
         subprocess = launcher.spawn(cancellable)
@@ -78,7 +86,7 @@ class Python517BuildStage(Ide.PipelineStage):
         task.return_boolean(True)
 
     def _build_completed_cb(self, task, _pspec):
-        # TODO: build target ui not updated until collapsing
+        # FIXME: build target ui not updated until collapsing
         # and expand target
         context = self.get_context()
         build_system = Ide.BuildSystem.from_context(context)
@@ -126,7 +134,7 @@ class Python517BuildStage(Ide.PipelineStage):
         task.return_boolean(True)
 
     def _clean_completed_cb(self, task, _pspec):
-        # TODO: build target ui not updated until collapsing
+        # FIXME: build target ui not updated until collapsing
         # and expand target
         context = self.get_context()
         build_system = Ide.BuildSystem.from_context(context)

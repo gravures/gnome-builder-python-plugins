@@ -19,6 +19,7 @@
 #       MA 02110-1301, USA.
 #
 import sys
+import os
 from pathlib import Path
 import venv
 
@@ -85,11 +86,9 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
     #backend_path = GObject.Property(type=GLib.List, default=[])
     frontend = GObject.Property(type=str, default="pip")
     build_backend = GObject.Property(type=object, default=None)
-    builds = GObject.Property(
-                    type=GLib.HashTable,
-                    default={},
-               )
+    builds = GObject.Property(type=GLib.HashTable, default={})
 
+    # TODO: set wheel as installable
 
     def do_init_async(self, priority, cancel, callback, data=None):
         task = Gio.Task.new(self, cancel, callback)
@@ -167,7 +166,7 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
 
         Returns(str): a string containing the project version
         """
-        # TODO: develop
+        # TODO: do_get_project_version()
         return None
 
     def do_build_system_supports_language(self, language):
@@ -245,6 +244,28 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
                 b_inst.append((file, kind, name))
         return b_inst
 
+    def get_virtual_env(self):
+        context = self.get_context()
+        config_manager = Ide.ConfigManager.from_context(context)
+        config = config_manager.get_current()
+        virtual_env = config.getenv("VIRTUAL_ENV")
+        os_virtual_env = os.environ.get("VIRTUAL_ENV")
+
+        if virtual_env or os_virtual_env:
+            virtual_env = Path(virtual_env) if virtual_env else Path(os_virtual_env)
+            if not virtual_env.is_absolute():
+                 cwd = Path(context.ref_workdir().get_path())
+                 virtual_env = cwd / virtual_env
+            if virtual_env.is_dir():
+                print(f"Updating venv in {virtual_env.absolute()}")
+                builder = venv.EnvBuilder(upgrade=True, with_pip=True)
+                builder.create(virtual_env)
+            else:
+                print(f"Creating venv in {virtual_env.absolute()}")
+                builder = venv.EnvBuilder(with_pip=True)
+                builder.create(virtual_env)
+        return virtual_env
+
 
 class Python517PipelineAddin(Ide.Object, Ide.PipelineAddin):
     """
@@ -266,14 +287,14 @@ class Python517PipelineAddin(Ide.Object, Ide.PipelineAddin):
         if not isinstance(build_system, Python517BuildSystem):
             return
 
-        #print(f"config: {pipeline.get_config()}")
-
         # Build Phase
         build_backend = build_system.get_property("build_backend")
         build_stage = Python517BuildStage(build_backend)
         phase = Ide.PipelinePhase.BUILD
         stage_id = pipeline.attach(phase, 100, build_stage)
         self.track(stage_id)
+
+        # TODO: publishing phase
 
 
 class Python517BuildTarget(Ide.Object, Ide.BuildTarget):
@@ -284,12 +305,14 @@ class Python517BuildTarget(Ide.Object, Ide.BuildTarget):
     name = GObject.Property(type=str, default="Unknown")
     action = GObject.Property(type=str, default="null")
     priority = GObject.Property(type=int, default=0)
+    virtual_env = GObject.Property(type=str, default=None)
 
-    def __init__(self, name, action, priority, argv, **kwargs):
+    def __init__(self, name, action, priority, virtual_env, argv, **kwargs):
         super().__init__(**kwargs)
         self.props.name = name
         self.props.action = action
         self.props.priority = priority
+        self.props.virtual_env = str(virtual_env) if virtual_env else None
         self.argv = argv
 
     def do_get_install_directory(self):
@@ -328,6 +351,10 @@ class Python517BuildTarget(Ide.Object, Ide.BuildTarget):
 
         Returns(str): containing the arguments to run the target.
         """
+        if self.props.virtual_env:
+            _argv = self.argv.copy()
+            _argv[0] =  f"{self.props.virtual_env}/bin/{_argv[0]}"
+            return _argv
         return self.argv
 
     def do_get_cwd(self):
@@ -380,7 +407,7 @@ class Python517BuildTarget(Ide.Object, Ide.BuildTarget):
 
         Returns(bool): TRUE if the build target is installed
         """
-        TODO: develop
+        # TODO: develop case for different target
         return True
 
 
@@ -425,26 +452,37 @@ class Python517BuildTargetProvider(Ide.Object, Ide.BuildTargetProvider):
 
         build_dir = build_system.props.build_backend.get_builddir_name()
         installables = build_system.get_builds_installable()
+        virtual_env = build_system.get_virtual_env()
         task.targets = []
+
+        # TODO: install editable
 
         for file, kind, name in installables:
             if kind is BuildType.SDIST:
+                cmd = build_system.props.build_backend.get_wheel_cmd()
+                if build_system.props.build_backend.has_isolation():
+                    _venv = None
+                else:
+                    _venv = virtual_env
                 task.targets.append(Python517BuildTarget(
                     name = name,
                     action = "wheel",
                     priority = 100,
-                    argv = ["python", "-m", "pip", "wheel",
-                            "-w", build_dir, "-e", f"{build_dir}/{file}"]
+                    virtual_env = _venv,
+                    argv = cmd
                 ))
+            # TODO: what about different frontend than pip
             if kind in [BuildType.SDIST, BuildType.WHEEL]:
                 task.targets.append(Python517BuildTarget(
                     name = name,
                     action = "install",
                     priority = 200,
+                    virtual_env = virtual_env,
                     argv = ["python", "-m", "pip",
                             "install", f"{build_dir}/{file}"]
                 ))
 
+        # TODO: adding run target for console script entry point
         #task.targets = [build_system.ensure_child_typed(Python517BuildTarget)]
         task.return_boolean(True)
 
