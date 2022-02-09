@@ -226,7 +226,9 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
 
     def get_builds_installable(self):
         # TODO: study proprity of installable, what about egg and file
-        b_inst = []
+        b_inst = [(self.get_context().ref_workdir().get_path(),
+                   BuildType.TREE,
+                   "sources")]
         installable = None
         name = "Unknown"
         if BuildType.WHEEL in self.props.builds.values():
@@ -455,8 +457,6 @@ class Python517BuildTargetProvider(Ide.Object, Ide.BuildTargetProvider):
         virtual_env = build_system.get_virtual_env()
         task.targets = []
 
-        # TODO: install editable
-
         for file, kind, name in installables:
             if kind is BuildType.SDIST:
                 cmd = build_system.props.build_backend.get_wheel_cmd()
@@ -480,6 +480,23 @@ class Python517BuildTargetProvider(Ide.Object, Ide.BuildTargetProvider):
                     virtual_env = virtual_env,
                     argv = ["python", "-m", "pip",
                             "install", f"{build_dir}/{file}"]
+                ))
+                task.targets.append(Python517BuildTarget(
+                    name = name,
+                    action = "uninstall",
+                    priority = 400,
+                    virtual_env = virtual_env,
+                    argv = ["python", "-m", "pip",
+                            "uninstall", name]
+                ))
+            if kind in [BuildType.TREE]:
+                task.targets.append(Python517BuildTarget(
+                    name = name,
+                    action = "install editable",
+                    priority = 200,
+                    virtual_env = virtual_env,
+                    argv = ["python", "-m", "pip",
+                            "install", '-e', file]
                 ))
 
         # TODO: adding run target for console script entry point

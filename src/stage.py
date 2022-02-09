@@ -47,8 +47,9 @@ class Python517BuildStage(Ide.PipelineStage):
 
         context = pipeline.get_context()
         build_system = Ide.BuildSystem.from_context(context)
+        _venv = None
         if not self.backend.has_isolation():
-           _venv = build_system.get_virtual_env():
+           _venv = build_system.get_virtual_env()
 
         for i, arg in enumerate(self.backend.get_build_cmd()):
             if i==0 and _venv:
