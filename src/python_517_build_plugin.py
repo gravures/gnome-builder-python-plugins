@@ -18,17 +18,21 @@
 #       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #       MA 02110-1301, USA.
 #
-from abc import ABC, abstractmethod
+import sys
 from pathlib import Path
-import shutil
 import venv
 
+import tomli
+from packaging.utils import parse_wheel_filename
+from packaging.utils import parse_sdist_filename
+from packaging.version import Version
 import gi
 
 from gi.repository import Gio, GLib, GObject
 from gi.repository import Ide
 
-import tomli
+from backends import BuildType, PypaBuildBackend
+from stage import Python517BuildStage
 
 
 _ = Ide.gettext
@@ -53,69 +57,6 @@ class Python517BuildSystemDiscovery(Ide.SimpleBuildSystemDiscovery):
         self.props.glob = "pyproject.toml"
         self.props.hint = "python_517_build_plugin"
         self.props.priority = 500
-
-
-class Python517BuildBackend(ABC):
-
-    def get_name(self):
-        """Return the canonic name of the backend."""
-        return self.__name__
-
-    @abstractmethod
-    def get_display_name(self):
-        """Return a string to show in the ui."""
-        pass
-
-    @abstractmethod
-    def get_builddir_name(self):
-        return "build"
-
-    def get_builddir(self, root_dir):
-        """A method returning the path used as the build directory
-        for this Backend.
-
-        Args:
-            root_dir(Gio.File): the root directory for the project.
-
-        Returns(Gio.File): the build directory path for this Backend.
-        """
-        return root_dir.get_child(self.get_builddir_name())
-
-    @abstractmethod
-    def get_build_argv(self):
-        """Gets the arguments used to run the build.
-
-        Returns(list): a list containing the arguments to run the build.
-        """
-        pass
-
-    @abstractmethod
-    def get_clean_argv(self):
-        """."""
-        pass
-
-
-class PypaBuildBackend(Python517BuildBackend):
-    """PypaBuildBackend. """
-
-    def get_display_name(self):
-        return "Pypa Build"
-
-    def get_builddir_name(self):
-        return "dist"
-
-    def get_build_argv(self):
-        return ["python",
-                "-m",
-                "build",
-                "--sdist",
-                "--outdir",
-                self.get_builddir_name(),
-        ]
-
-    def get_clean_argv(self):
-        # TODO: develop
-        return []
 
 
 class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
@@ -144,6 +85,10 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
     #backend_path = GObject.Property(type=GLib.List, default=[])
     frontend = GObject.Property(type=str, default="pip")
     build_backend = GObject.Property(type=object, default=None)
+    builds = GObject.Property(
+                    type=GLib.HashTable,
+                    default={},
+               )
 
 
     def do_init_async(self, priority, cancel, callback, data=None):
@@ -234,6 +179,9 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
         return language == "python3"
 
     def do_get_builddir(self, pipeline):
+        return self.get_builddir()
+
+    def get_builddir(self):
         """Return a path to the build directory.
 
         This path may not be the same for different
@@ -257,132 +205,45 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
     def do_get_priority(self):
         return 500
 
+    def add_build(self, file):
+        if file.is_dir() \
+           and BuildType.TREE in self.props.build_backend.get_build_types():
+            self.props.builds[file.name] = BuildType.TREE
+        elif file.suffix == ".egg" \
+             and BuildType.EGG in self.props.build_backend.get_build_types():
+            self.props.builds[file.name] = BuildType.EGG
+        elif file.suffix == ".whl" \
+             and BuildType.WHEEL in self.props.build_backend.get_build_types():
+            self.props.builds[file.name] = BuildType.WHEEL
+        # FIXME: valid suffixes for sdist?
+        elif file.suffix in [".gz", ".tar", ".zip"] \
+             and BuildType.SDIST in self.props.build_backend.get_build_types():
+            self.props.builds[file.name] = BuildType.SDIST
+        elif BuildType.FILE in self.props.build_backend.get_build_types():
+            self.props.builds[file.name] = BuildType.FILE
 
-class Python517BuildStage(Ide.PipelineStage):
+    def clean_builds(self):
+        self.props.builds.clear()
 
-    def __init__(self, build_backend, *argv, **kwargs):
-        super().__init__(*argv, **kwargs)
-        self.backend = build_backend
-        self.set_name(
-                _(f"{build_backend.get_display_name()}: building project")
-            )
-
-    def do_build_async(self, pipeline, cancellable, callback, data):
-        """This is a asynchronous build stage.
-        """
-        task = Ide.Task.new(self, cancellable, callback)
-        task.set_priority(GLib.PRIORITY_LOW)
-
-        srcdir = pipeline.get_srcdir()
-        launcher = pipeline.create_launcher()
-        launcher.set_cwd(srcdir)
-        for arg in self.backend.get_build_argv():
-            launcher.push_argv(arg)
-
-        task.connect("notify::completed", self._notify_completed_cb)
-        self.set_active(True)
-        pipeline.attach_pty(launcher)
-        self.log(Ide.BuildLogStream.STDOUT, " ".join(self.backend.get_build_argv()), -1)
-
-        # launch the process
-        subprocess = launcher.spawn(cancellable)
-        if subprocess is None:
-            task.return_error(
-                GLib.Error(
-                    "build subprocess failed",
-                    domain=GLib.quark_to_string(GLib.spawn_error_quark()),
-                    code=GLib.SpawnErrorEnum.FAILED,
-                )
-            )
-            return
-        subprocess.wait_async(cancellable, self._wait_cb, task)
-
-    def _wait_cb(self, subprocess, result, task):
-        exit_status = subprocess.get_exit_status()
-        if exit_status > 0:
-            task.return_error(GLib.Error(
-                    f"build subprocess exit with signal {exit_status}",
-                    domain=GLib.quark_to_string(GLib.spawn_error_quark()),
-                    code=GLib.SpawnErrorEnum.FAILED,
-                )
-            )
-            return
-        task.return_boolean(True)
-
-    def _notify_completed_cb(self, task, _pspec):
-        self.set_active(False)
-
-    def do_build_finish(self, task):
-        return task.propagate_boolean()
-
-    def do_clean_async(self, pipeline, cancellable, callback, data):
-        """
-        When the user requests that the build pipeline run the
-        clean operation (often before a "rebuild"), this function
-        will be executed. Use it to delete stale directories, etc.
-        """
-        task = Ide.Task.new(self, cancellable, callback)
-        task.set_priority(GLib.PRIORITY_LOW)
-
-        task.connect("notify::completed", self._notify_completed_cb)
-        self.set_active(True)
-        self.log(
-            Ide.BuildLogStream.STDOUT,
-            f"cleaning {self.backend.get_builddir_name()} directory",
-            -1,
-        )
-
-        build_dir = Path(pipeline.get_builddir())
-        if build_dir.is_dir():
-            files = [child for child in build_dir.iterdir()]
-            for file in files:
-                if file.is_file():
-                    self.log(
-                        Ide.BuildLogStream.STDOUT, f"deleting {file.name}",-1,
-                    )
-                    file.unlink()
-                if file.is_dir():
-                    self.log(
-                        Ide.BuildLogStream.STDOUT,
-                        f"deleting {file.name} directory tree",
-                        -1,
-                    )
-                    shutil.rmtree(file, ignore_errors=True)
-        task.return_boolean(True)
-
-    def do_clean_finish(self, task):
-        return task.propagate_boolean()
-
-    def do_query(self, pipeline, cancellable):
-        """
-        If you need to check if this stage still needs to
-        be run, use the query signal to check an external
-        resource.
-
-        By default, stages are marked completed after they
-        run. That means a second attempt to run the stage
-        will be skipped unless set_completed() is set to False.
-
-        If you need to do something asynchronous, call
-        self.pause() to pause the stage until the async
-        operation has completed, and then call unpause()
-        to resume execution of the stage.
-        """
-        # This will run on every request to run the phase
-        self.set_completed(False)
-
-    def do_chain(self, _next):
-        """
-        Sometimes, you have build stages that are next to
-        each other in the pipeline and they can be coalesced
-        into a single operation.
-
-        One such example is "make" followed by "make install".
-
-        You can detect that here and reduce how much work is
-        done by the build pipeline.
-        """
-        return False
+    def get_builds_installable(self):
+        # TODO: study proprity of installable, what about egg and file
+        b_inst = []
+        installable = None
+        name = "Unknown"
+        if BuildType.WHEEL in self.props.builds.values():
+            installable = BuildType.WHEEL
+        elif BuildType.SDIST in self.props.builds.values():
+            installable = BuildType.SDIST
+        elif BuildType.TREE in self.props.builds.values():
+            installable = BuildType.TREE
+        for file, kind in self.props.builds.items():
+            if kind is installable:
+                if kind is BuildType.WHEEL:
+                    name, ver, build, tags = parse_wheel_filename(file)
+                elif kind is BuildType.SDIST:
+                    name, ver = parse_sdist_filename(file)
+                b_inst.append((file, kind, name))
+        return b_inst
 
 
 class Python517PipelineAddin(Ide.Object, Ide.PipelineAddin):
@@ -405,9 +266,12 @@ class Python517PipelineAddin(Ide.Object, Ide.PipelineAddin):
         if not isinstance(build_system, Python517BuildSystem):
             return
 
+        #print(f"config: {pipeline.get_config()}")
+
+        # Build Phase
         build_backend = build_system.get_property("build_backend")
         build_stage = Python517BuildStage(build_backend)
-        phase = Ide.PipelinePhase.BUILD | Ide.PipelinePhase.AFTER
+        phase = Ide.PipelinePhase.BUILD
         stage_id = pipeline.attach(phase, 100, build_stage)
         self.track(stage_id)
 
@@ -417,12 +281,21 @@ class Python517BuildTarget(Ide.Object, Ide.BuildTarget):
 
     Ide.BuildTarget API is available since ABI 3.32
     """
+    name = GObject.Property(type=str, default="Unknown")
+    action = GObject.Property(type=str, default="null")
+    priority = GObject.Property(type=int, default=0)
+
+    def __init__(self, name, action, priority, argv, **kwargs):
+        super().__init__(**kwargs)
+        self.props.name = name
+        self.props.action = action
+        self.props.priority = priority
+        self.argv = argv
 
     def do_get_install_directory(self):
         """Returns(Gio.File): a GFile or None."""
-        # TODO: develop
         # sys.executable return python path following venv
-        return None
+        return Gio.File.new_for_path(str(Path(sys.executable).parent))
 
     def do_get_display_name(self):
         """A display name for the build target
@@ -430,14 +303,14 @@ class Python517BuildTarget(Ide.Object, Ide.BuildTarget):
 
         Returns(str): A display name.
         """
-        return "Pypa Build"
+        return f"{self.props.name} : {self.props.action}"
 
     def do_get_name(self):
         """Return a command name.
 
         Returns(str): A command name (a filename) or None.
         """
-        return "python"
+        return self.props.action
 
     def do_get_priority(self):
         """Gets the priority of the build target.
@@ -448,14 +321,14 @@ class Python517BuildTarget(Ide.Object, Ide.BuildTarget):
 
         Returns(int): the priority of the build target
         """
-        return 500
+        return self.props.priority
 
     def do_get_argv(self):
         """Gets the arguments used to run the target.
 
         Returns(str): containing the arguments to run the target.
         """
-        return ["python"]
+        return self.argv
 
     def do_get_cwd(self):
         """Gets the correct working directory.
@@ -507,7 +380,7 @@ class Python517BuildTarget(Ide.Object, Ide.BuildTarget):
 
         Returns(bool): TRUE if the build target is installed
         """
-        # TODO: develop
+        TODO: develop
         return True
 
 
@@ -519,7 +392,6 @@ class Python517BuildTargetProvider(Ide.Object, Ide.BuildTargetProvider):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        print("\nPython517BuildTargetProvider")
 
     def do_get_targets_async(self, cancellable, callback, data):
         """Asynchronously requests that the provider fetch all
@@ -534,7 +406,7 @@ class Python517BuildTargetProvider(Ide.Object, Ide.BuildTargetProvider):
             callback(callable): a callback to execute upon completion
             user_data: closure data for callback
         """
-        print("\nPython517BuildTargetProvider.do_get_targets_async()")
+
         task = Ide.Task.new(self, cancellable, callback)
         task.set_priority(GLib.PRIORITY_LOW)
 
@@ -551,7 +423,29 @@ class Python517BuildTargetProvider(Ide.Object, Ide.BuildTargetProvider):
             )
             return
 
-        task.targets = [build_system.ensure_child_typed(Python517BuildTarget)]
+        build_dir = build_system.props.build_backend.get_builddir_name()
+        installables = build_system.get_builds_installable()
+        task.targets = []
+
+        for file, kind, name in installables:
+            if kind is BuildType.SDIST:
+                task.targets.append(Python517BuildTarget(
+                    name = name,
+                    action = "wheel",
+                    priority = 100,
+                    argv = ["python", "-m", "pip", "wheel",
+                            "-w", build_dir, "-e", f"{build_dir}/{file}"]
+                ))
+            if kind in [BuildType.SDIST, BuildType.WHEEL]:
+                task.targets.append(Python517BuildTarget(
+                    name = name,
+                    action = "install",
+                    priority = 200,
+                    argv = ["python", "-m", "pip",
+                            "install", f"{build_dir}/{file}"]
+                ))
+
+        #task.targets = [build_system.ensure_child_typed(Python517BuildTarget)]
         task.return_boolean(True)
 
     def do_get_targets_finish(self, result):
