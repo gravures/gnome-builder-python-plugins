@@ -17,6 +17,7 @@ Currently the only supported build backend is the Pypa [build](https://pypa-buil
 * setuptools >= 42.0
 * build >= 0.1.0
 * pip >= 20.3
+* packaging >= 20.9
 
 
 ## Installing

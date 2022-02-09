@@ -11,7 +11,8 @@ builder_required_version='3.32'
 python_modules = ['setuptools=52.0',
                   'build=0.1.0',
                   'pip=20.3',
-                  'tomli=1.2']
+                  'tomli=1.2',
+                  'packaging=20.9']
 
 # plugin obviously depends on gnome-builder
 gnome_builder = find_program('gnome-builder', required: true)
