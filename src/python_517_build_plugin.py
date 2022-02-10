@@ -14,9 +14,11 @@
 #       GNU General Public License for more details.
 #
 #       You should have received a copy of the GNU General Public License
-#       along with this program; if not, write to the Free Soipftware
+#       along with this program; if not, write to the Free Software
 #       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #       MA 02110-1301, USA.
+#
+# pylint: disable=R0201,C0116,W0613,W0511,R0913
 #
 import sys
 import os
@@ -76,14 +78,15 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
     All of those Ide.BuildSystem methods and property
     are available since ABI 3.32
     """
+
     project_file = GObject.Property(type=Gio.File)  # 'pyproject.toml'
     backends = GObject.Property(
-                    type=GLib.HashTable,
-                    default={"setuptools.build_meta": PypaBuildBackend},
-                    flags = GObject.ParamFlags.READABLE,
-               )
-    #requires = GObject.Property(type=GLib.List, default=[])
-    #backend_path = GObject.Property(type=GLib.List, default=[])
+        type=GLib.HashTable,
+        default={"setuptools.build_meta": PypaBuildBackend},
+        flags=GObject.ParamFlags.READABLE,
+    )
+    # requires = GObject.Property(type=GLib.List, default=[])
+    # backend_path = GObject.Property(type=GLib.List, default=[])
     frontend = GObject.Property(type=str, default="pip")
     build_backend = GObject.Property(type=object, default=None)
     builds = GObject.Property(type=GLib.HashTable, default={})
@@ -108,7 +111,7 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
         """Load and parse the pyproject.toml file.
 
         If the pyproject.toml file is absent, or the build-backend key is missing,
-        the source tree is not using Pep517 specification. Tools should revert
+        the source tree is not using Pep 517 specification. Tools should revert
         to the legacy behaviour of running setup.py (either directly,
         or by implicitly invoking the setuptools.build_meta:__legacy__ backend).
         Where the build-backend key exists, this takes precedence and the source
@@ -117,15 +120,15 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
         """
 
         try:
-            ok, contents, _etag = project_file.load_contents_finish(result)
-        except GLib.Error as e:  # IOError
-            task.return_error(e)
+            _ok, contents, _etag = project_file.load_contents_finish(result)
+        except GLib.Error as err:  # IOError
+            task.return_error(err)
             return
 
         try:
             py_project = tomli.loads(contents.decode('utf-8'))
-        except tomli.TOMLDecodeError as e:  # Invalid toml file
-            task.return_error(e)
+        except tomli.TOMLDecodeError as err:  # Invalid toml file
+            task.return_error(err)
             return
 
         if "build-system" not in py_project \
@@ -157,8 +160,7 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
         """
         if self.props.project_file.get_basename() != 'pyproject.toml':
             return self.props.project_file.get_child('pyproject.toml')
-        else:
-            return self.props.project_file
+        return self.props.project_file
 
     def do_get_project_version(self):
         """If the build system supports it, gets the project
@@ -191,9 +193,8 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
         """
         if self.props.build_backend is None:
             return self.get_context().ref_workdir().get_path()
-        else:
-            _wd = self.get_context().ref_workdir()
-            return self.props.build_backend.get_builddir(_wd).get_path()
+        _wd = self.get_context().ref_workdir()
+        return self.props.build_backend.get_builddir(_wd).get_path()
 
     def do_get_id(self):
         return "python_517_build_system"
@@ -264,9 +265,9 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
         for file, kind in self.props.builds.items():
             if kind is installable:
                 if kind is BuildType.WHEEL:
-                    name, ver, build, tags = parse_wheel_filename(file)
+                    name, _ver, _build, _tags = parse_wheel_filename(file)
                 elif kind is BuildType.SDIST:
-                    name, ver = parse_sdist_filename(file)
+                    name, _ver = parse_sdist_filename(file)
                 b_inst.append((file, kind, name))
         return b_inst
 
@@ -305,7 +306,7 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
 class Python517PipelineAddin(Ide.Object, Ide.PipelineAddin):
     """
     Builder uses the concept of a “Build Pipeline” to build a project.
-    The build pipeline consistes of multiple “phases” and build “stages”
+    The build pipeline consists of multiple “phases” and build “stages”
     run in a given phase.
     The Ide.Pipeline is used to specify how and when build operations
     should occur. Plugins attach build stages to the pipeline to perform
@@ -409,8 +410,7 @@ class Python517BuildTarget(Ide.Object, Ide.BuildTarget):
         project_file = Ide.BuildSystem.from_context(context).project_file
         if project_file.query_file_type(0, None) == Gio.FileType.DIRECTORY:
             return project_file.get_path()
-        else:
-            return project_file.get_parent().get_path()
+        return project_file.get_parent().get_path()
 
     def do_get_language(self):
         """Return the programming language of this build target.
@@ -451,9 +451,6 @@ class Python517BuildTargetProvider(Ide.Object, Ide.BuildTargetProvider):
 
     Ide.BuildTargetProvider API is available since ABI 3.32
     """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
     def do_get_targets_async(self, cancellable, callback, data):
         """Asynchronously requests that the provider fetch all
@@ -547,6 +544,7 @@ class Python517BuildTargetProvider(Ide.Object, Ide.BuildTargetProvider):
         """
         if result.propagate_boolean():
             return result.targets
+        return None
 
 
 # EOF

@@ -1,4 +1,4 @@
-project('gnome-builder-setuptools-plugin',
+project('gnome-builder-pep517-plugin',
          version: '0.1.0',
          license: 'GPL-3.0-or-later',
     	 meson_version: '>= 0.50.0',
