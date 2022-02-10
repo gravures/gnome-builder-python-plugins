@@ -7,4 +7,4 @@ Module=python_517_build_plugin
 Depends=editor;buildui;
 X-Project-File-Filter-Name=Python 517_Build
 X-Project-File-Filter-Pattern=pyproject.toml
-X-Builder-ABI=@abi_version@
+X-Builder-ABI=@PACKAGE_ABI@
