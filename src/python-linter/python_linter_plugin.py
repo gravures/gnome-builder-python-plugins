@@ -18,13 +18,18 @@
 #       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #       MA 02110-1301, USA.
 #
+# pylint: disable=missing-function-docstring, unused-argument
+# pylint: disable=too-many-arguments, attribute-defined-outside-init
+# pylint: disable=too-many-locals, no-self-use
+#
 import os
 from pathlib import Path
 import json
 import threading
 
-import pylint  # for raising an ImportError so our plugin wont load 
-               # if pylint is not installed.
+# for raising an ImportError so our plugin wont load
+# if pylint is not installed.
+import pylint
 import gi
 
 from gi.repository import GLib, GObject, Gio
@@ -97,7 +102,7 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
 
             sub_process = launcher.spawn()
             stdin = file_content.get_data().decode('UTF-8')
-            success, stdout, stderr = sub_process.communicate_utf8(stdin, None)
+            success, stdout, _stderr = sub_process.communicate_utf8(stdin, None)
 
             if not success:
                 task.return_boolean(False)
@@ -125,9 +130,12 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
                         end_col = max(item['endColumn'] - 1, 0)
                         end = Ide.Location.new(file, end_line, end_col)
 
+                _symbol = item.get('symbol')
+                _message = item.get('message')
+                _code = item.get('message-id')
                 diagnostic = Ide.Diagnostic.new(
-                                severity, 
-                                f"{item['message']} ({item['message-id']})", 
+                                severity,
+                                f"{_symbol} ({_code})\n{_message}",
                                 start,
                              )
                 if end is not None:
@@ -143,8 +151,10 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
                 task.diagnostics_list.append(diagnostic)
         except GLib.Error as err:
             task.return_error(err)
-        except (json.JSONDecodeError, UnicodeDecodeError, IndexError) as e:
-            task.return_error(GLib.Error('Failed to decode pylint json: {}'.format(e)))
+        except (json.JSONDecodeError, UnicodeDecodeError, IndexError) as err:
+            task.return_error(
+                GLib.Error(f"Failed to decode pylint json: {err}")
+            )
         else:
             task.return_boolean(True)
 
@@ -154,6 +164,7 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
             for diag in result.diagnostics_list:
                 diagnostics.add(diag)
             return diagnostics
+        return None
 
 
 # class PythonLinterPreferencesAddin(GObject.Object, Ide.PreferencesAddin):
@@ -163,7 +174,7 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
 #         """do_load."""
 #         self.python_linter_id = preferences.add_switch(
             # to the code-insight page
-#             "code-insight", 
+#             "code-insight",
             # in the diagnostics group 
 #             "diagnostics",  
             # mapping to the gsettings schema

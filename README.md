@@ -5,31 +5,39 @@
 A set of **gnome-builder** extensions for Python development.
 
 
+
 ## Features
 
-### python-517 plugin
-Provide a modern python build system defined through the [PEP 517](https://www.python.org/dev/peps/pep-0517/#build-requirements) -- A build-system independent format for source trees. This is also well known as [pyproject.toml](https://pip.pypa.io/en/stable/reference/build-system/pyproject-toml/) interface.
+#### python-517 plugin
+
+Provide a modern python build system defined through the [PEP 517](https://www.python.org/dev/peps/pep-0517/#build-requirements) (a build-system independent format for source trees). This is also well known as the [pyproject.toml](https://pip.pypa.io/en/stable/reference/build-system/pyproject-toml/) interface.
 Currently the only supported build backend is the **Pypa** [build](https://pypa-build.readthedocs.io/en/latest/) backend.
 
-### python-linter plugin
+#### python-linter plugin
+
 Provide integration with the [PyLint](https://pylint.org/) Python linter.
+
 
 
 ## Requirements
 
-### global requirements
+#### global requirements
+
 * gnome-builder >= 3.32
 * Python >=3.6
 
-### python-517 plugin requirements
+#### python-517 plugin requirements
+
 * setuptools >= 42.0
 * build >= 0.1.0
 * pip >= 20.3
 * packaging >= 20.9
 * tomli >= 1.2
 
-### python-linter requirement
+#### python-linter requirement
+
 * pylint >= 2.12
+
 
 
 ## Installing
@@ -59,6 +67,8 @@ $ meson compile -C build
 $ meson install -C build
 ```
 
+
+
 ## Flatpak installation
 
 To show installed packages in your gnome-builder flatpak's distribution:
@@ -73,9 +83,6 @@ To install or upgrade a requirement in your gnome-builder flatpak's distribution
 pip install packaging>=20.9 --upgrade -t ~/.local/share/flatpak/app/org.gnome.Builder/current/active/files/lib/python3.9/site-packages
 ```
 
-
-
 ## License
 
 **gnome-builder python plugins** are free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 3 of the License, or (at your option) any later version.
-
