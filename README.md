@@ -38,8 +38,8 @@ This plugin uses the [meson build system](http://mesonbuild.com/). Run the follo
 commands to clone this project and initialize the build:
 
 ```
-$ git clone https://github.com/gravure-dtp/gnome-builder-setuptools-plugin.git
-$ cd gnome-builder-setuptools-plugin
+$ git clone https://github.com/gravure-dtp/gnome-builder-python-plugins.git
+$ cd gnome-builder-python-plugins
 $ meson build --prefix=~/.local
 ```
 
