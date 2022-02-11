@@ -1,0 +1,11 @@
+<schemalist>
+  <schema id="org.gnome.builder.plugins.python-linter" 
+          path="/org/gnome/builder/plugins/python-linter/" 
+          gettext-domain="gnome-builder">
+    <key name="enable-python-linter" type="b">
+      <default>false</default>
+      <summary>Enable Python Linter</summary>
+      <description>Enable the use of pylint to find additional diagnostics in Python files. This may result in the execution of code in your project.</description>
+    </key>
+  </schema>
+</schemalist>

@@ -1,0 +1,12 @@
+[Plugin]
+Name=python-linter
+Description=Provides integration with pylint
+Author=Gilles Coissac
+Loader=python3
+Hidden=false
+Module=python_linter_plugin
+Depends=editor;buildui;
+X-Diagnostic-Provider-Languages-Priority=50
+X-Diagnostic-Provider-Languages=python3
+X-Builder-ABI=@PACKAGE_ABI@
+
