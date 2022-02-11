@@ -18,7 +18,7 @@
 #       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #       MA 02110-1301, USA.
 #
-# pylint: disable=missing-function-docstring, unused-argument
+# pylint: disable=unused-argument
 # pylint: disable=too-many-arguments, attribute-defined-outside-init
 # pylint: disable=too-many-locals, no-self-use
 #
@@ -70,23 +70,30 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
         if launcher is None:
             launcher = Ide.SubprocessLauncher.new(0)
 
-        launcher.set_flags(Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE)
+        launcher.set_flags(
+            Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE
+        )
         launcher.set_cwd(srcdir)
 
         return launcher
 
-    def do_diagnose_async(self, file, file_content, lang_id, cancellable, callback, user_data):
+
+    def do_diagnose_async(
+        self, file, file_content, lang_id, cancellable, callback, user_data
+    ):
         self.diagnostics_list = []
         task = Gio.Task.new(self, cancellable, callback)
         task.diagnostics_list = []
 
         launcher = self.create_launcher()
-        srcdir = launcher.get_cwd()
 
-        threading.Thread(target=self.execute, args=(task, launcher, srcdir, file, file_content),
-                         name='pylint-thread').start()
+        threading.Thread(
+            target=self._execute,
+            args=(task, launcher, file, file_content),
+            name="pylint-thread",
+        ).start()
 
-    def execute(self, task, launcher, srcdir, file, file_content):
+    def _execute(self, task, launcher, file, file_content):
         try:
             launcher.push_args(('pylint', '--output-format', 'json',
                                 '--persistent', 'n',
@@ -115,20 +122,24 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
                 if not line or not column:
                     continue
                 start_line = max(item['line'] - 1, 0)
-                start_col = max(item['column'] - 1, 0)
+                start_col = max(item['column'], 0)
                 start = Ide.Location.new(file, start_line, start_col)
                 
                 severity = SEVERITY_MAP[item['type']]
                 end = None
                 
-                # make long underlined only for hight severity
-                if severity in (Ide.DiagnosticSeverity.ERROR, Ide.DiagnosticSeverity.FATAL):
-                    end_line = item.get('endLine', None)
-                    end_col = item.get('endColumn', None)
-                    if end_line and end_col:
-                        end_line = max(end_line - 1, 0)
-                        end_col = max(item['endColumn'] - 1, 0)
-                        end = Ide.Location.new(file, end_line, end_col)
+                end_line = item.get('endLine', None)
+                end_col = item.get('endColumn', None)
+                if end_line and end_col:
+                    end_line = max(end_line - 1, 0)
+                    end_col = max(end_col , 0)
+                    if not severity in (Ide.DiagnosticSeverity.ERROR,
+                                        Ide.DiagnosticSeverity.FATAL):
+                        # make underlined run on multiple lines
+                        # only for hight severity code
+                        end_col = start_col if start_line != end_line else end_col
+                        end_line = start_line
+                    end = Ide.Location.new(file, end_line, end_col)
 
                 _symbol = item.get('symbol')
                 _message = item.get('message')
@@ -169,30 +180,31 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
 
 # class PythonLinterPreferencesAddin(GObject.Object, Ide.PreferencesAddin):
 #     """PythonLinterPreferencesAddin."""
-    
+
 #     def do_load(self, preferences):
 #         """do_load."""
 #         self.python_linter_id = preferences.add_switch(
-            # to the code-insight page
+# to the code-insight page
 #             "code-insight",
-            # in the diagnostics group 
-#             "diagnostics",  
-            # mapping to the gsettings schema
-#             "org.gnome.builder.plugins.python-linter",  
-            # with the gsettings schema key
-#             "enable-python-linter",  
-            # And the gsettings path
-#             None, 
-            # The target GVariant value if necessary (usually not)
-#             "false", 
-            # title
-#             "Python Linter",  
-            # subtitle
+# in the diagnostics group
+#             "diagnostics",
+# mapping to the gsettings schema
+#             "org.gnome.builder.plugins.python-linter",
+# with the gsettings schema key
+#             "enable-python-linter",
+# And the gsettings path
+#             None,
+# The target GVariant value if necessary (usually not)
+#             "false",
+# title
+#             "Python Linter",
+# subtitle
 #             "Enable the use of PyLint, which may execute code in your project",
-            # translators: these are keywords used to search for preferences
+# translators: these are keywords used to search for preferences
 #             "pylint python lint code execute execution",
-            # with sort priority
+# with sort priority
 #             500)
 
 #     def do_unload(self, preferences):
 #         preferences.remove_id(self.python_linter_id)
+
