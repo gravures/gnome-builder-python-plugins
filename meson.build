@@ -44,6 +44,7 @@ message('Configure build for ABI version @0@'.format(abi_version))
 prefix = get_option('prefix')
 datadir = join_paths(prefix, get_option('datadir'))
 builder_plugindir = join_paths(datadir, 'gnome-builder/plugins')
+schemas_dir = join_paths(datadir, 'glib-2.0/schemas')
 
 
 # include
@@ -65,6 +66,8 @@ foreach module, require : python_requires
 endforeach
 
 
+#
+meson.add_install_script('glib-compile-schemas', schemas_dir)
 
 
 

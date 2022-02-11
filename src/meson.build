@@ -3,7 +3,8 @@
 requires = []
 
 # include
-subdir('python-517-build-plugin')
+subdir('python-517-build')
+subdir('python-linter')
 
 # add dependency to the top level
 # python_requires dictionary
