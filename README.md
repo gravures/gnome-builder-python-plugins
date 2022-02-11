@@ -44,6 +44,7 @@ $ meson --reconfigure --prefix=~/.local build
 To install, run:
 
 ```
+$ meson compile -C build
 $ meson install -C build
 ```
 
