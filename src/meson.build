@@ -1,10 +1,22 @@
-conf = configuration_data()
-conf.set('PACKAGE_ABI', abi_version)
+# global list each plugin will add
+# its own dependency
+requires = []
 
-configure_file(
-	input: files('python_517_build.plugin.in'),
-	output: 'python_517_build.plugin',
-	configuration: conf,
-	install: true,
-	install_dir: plugindir,
-)
+# include
+subdir('python-517-build-plugin')
+
+# add dependency to the top level
+# python_requires dictionary
+foreach pkg : requires
+	desc = pkg.split('=')
+	module = desc[0]
+	version = desc[1]
+	defined = python_requires.get(module, 'none')
+	if defined != 'none'
+		if version.version_compare('>@0@'.format(defined))
+			python_requires += {module: version}
+		endif
+	else
+	 	python_requires += {module: version}
+	endif
+endforeach
