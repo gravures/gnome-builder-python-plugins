@@ -1,24 +1,35 @@
-# gnome-builder pep 517 plugin
+# gnome-builder python plugins
 
 ## About
 
-A gnome-builder extension adding a setuptools build target.
+A set of **gnome-builder** extensions for Python development.
 
 
 ## Features
 
-Provide a modern python build system defined through the [pyproject.toml](https://pip.pypa.io/en/stable/reference/build-system/pyproject-toml/) interface.
-Currently the only supported build backend is the Pypa [build](https://pypa-build.readthedocs.io/en/latest/) backend.
+### python-517 plugin
+Provide a modern python build system defined through the [PEP 517](https://www.python.org/dev/peps/pep-0517/#build-requirements) -- A build-system independent format for source trees. This is also well known as [pyproject.toml](https://pip.pypa.io/en/stable/reference/build-system/pyproject-toml/) interface.
+Currently the only supported build backend is the **Pypa** [build](https://pypa-build.readthedocs.io/en/latest/) backend.
+
+### python-linter plugin
+Provide integration with the [PyLint](https://pylint.org/) Python linter.
+
 
 ## Requirements
 
+### global requirements
 * gnome-builder >= 3.32
 * Python >=3.6
+
+### python-517 plugin requirements
 * setuptools >= 42.0
 * build >= 0.1.0
 * pip >= 20.3
 * packaging >= 20.9
 * tomli >= 1.2
+
+### python-linter requirement
+* pylint >= 2.12
 
 
 ## Installing
@@ -66,5 +77,5 @@ pip install packaging>=20.9 --upgrade -t ~/.local/share/flatpak/app/org.gnome.Bu
 
 ## License
 
-'gnome-builder pep 517 plugin' is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 3 of the License, or (at your option) any later version.
+**gnome-builder python plugins** are free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 3 of the License, or (at your option) any later version.
 
