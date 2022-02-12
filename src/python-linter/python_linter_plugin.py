@@ -18,7 +18,7 @@
 #       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #       MA 02110-1301, USA.
 #
-# pylint: disable=unused-argument
+# pylint: #disable=unused-argument
 # pylint: disable=too-many-arguments, attribute-defined-outside-init
 # pylint: disable=too-many-locals, no-self-use
 #
@@ -41,18 +41,37 @@ _ = Ide.gettext
 
 SEVERITY_MAP = {
     0: Ide.DiagnosticSeverity.IGNORED,
-    'convention': Ide.DiagnosticSeverity.NOTE,
-    'refactor': Ide.DiagnosticSeverity.NOTE,
+    "convention": Ide.DiagnosticSeverity.NOTE,
+    "refactor": Ide.DiagnosticSeverity.NOTE,
+    "information": Ide.DiagnosticSeverity.NOTE,
     2: Ide.DiagnosticSeverity.UNUSED,
     3: Ide.DiagnosticSeverity.DEPRECATED,
-    'warning': Ide.DiagnosticSeverity.WARNING,
-    'error': Ide.DiagnosticSeverity.ERROR,
-    'fatal': Ide.DiagnosticSeverity.FATAL,
+    "warning": Ide.DiagnosticSeverity.WARNING,
+    "error": Ide.DiagnosticSeverity.ERROR,
+    "fatal": Ide.DiagnosticSeverity.FATAL,
 }
+
+UNUSED_CODE = [
+    "W0641",
+    "W0613",
+    "W1304",
+    "W1301",
+    "W0611",
+    "W0238",
+    "W0612",
+    "W0614",
+]
+
+DEPRECATED_CODE = [
+    "W1511",
+    "W1512",
+    "W1513",
+    "W1505",
+    "W0402",
+]
 
 
 class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
-  
     def create_launcher(self):
         """create_launcher."""
         context = self.get_context()
@@ -77,7 +96,6 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
 
         return launcher
 
-
     def do_diagnose_async(
         self, file, file_content, lang_id, cancellable, callback, user_data
     ):
@@ -95,20 +113,27 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
 
     def _execute(self, task, launcher, file, file_content):
         try:
-            launcher.push_args(('pylint', '--output-format', 'json',
-                                '--persistent', 'n',
-                                '-j', '1',
-                                '--exit-zero',
-                                ))
+            launcher.push_args(
+                (
+                    "pylint",
+                    "--output-format",
+                    "json",
+                    "--persistent",
+                    "n",
+                    "-j",
+                    "1",
+                    "--exit-zero",
+                )
+            )
 
             if file_content:
-                launcher.push_argv('--from-stdin')
+                launcher.push_argv("--from-stdin")
                 launcher.push_argv(file.get_path())
             else:
                 launcher.push_argv(file.get_path())
 
             sub_process = launcher.spawn()
-            stdin = file_content.get_data().decode('UTF-8')
+            stdin = file_content.get_data().decode("UTF-8")
             success, stdout, _stderr = sub_process.communicate_utf8(stdin, None)
 
             if not success:
@@ -117,38 +142,50 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
 
             results = json.loads(stdout)
             for item in results:
-                line = item.get('line', None)
-                column = item.get('column', None)
+                line = item.get("line", None)
+                column = item.get("column", None)
                 if not line or not column:
                     continue
-                start_line = max(item['line'] - 1, 0)
-                start_col = max(item['column'], 0)
+                start_line = max(item["line"] - 1, 0)
+                start_col = max(item["column"], 0)
                 start = Ide.Location.new(file, start_line, start_col)
-                
-                severity = SEVERITY_MAP[item['type']]
+
+                severity = SEVERITY_MAP[item["type"]]
                 end = None
-                
-                end_line = item.get('endLine', None)
-                end_col = item.get('endColumn', None)
+
+                end_line = item.get("endLine", None)
+                end_col = item.get("endColumn", None)
                 if end_line and end_col:
                     end_line = max(end_line - 1, 0)
-                    end_col = max(end_col , 0)
-                    if not severity in (Ide.DiagnosticSeverity.ERROR,
-                                        Ide.DiagnosticSeverity.FATAL):
+                    end_col = max(end_col, 0)
+                    if not severity in (
+                        Ide.DiagnosticSeverity.ERROR,
+                        Ide.DiagnosticSeverity.FATAL,
+                    ):
                         # make underlined run on multiple lines
                         # only for hight severity code
-                        end_col = start_col if start_line != end_line else end_col
+                        end_col = (
+                            start_col if start_line != end_line else end_col
+                        )
                         end_line = start_line
                     end = Ide.Location.new(file, end_line, end_col)
 
-                _symbol = item.get('symbol')
-                _message = item.get('message')
-                _code = item.get('message-id')
+                _symbol = item.get("symbol")
+                _message = item.get("message")
+                _code = item.get("message-id")
+
+                # Additional sorting
+                if severity is Ide.DiagnosticSeverity.WARNING:
+                    if _code in UNUSED_CODE:
+                        severity = Ide.DiagnosticSeverity.UNUSED
+                    elif _code in DEPRECATED_CODE:
+                        severity = Ide.DiagnosticSeverity.DEPRECATED
+
                 diagnostic = Ide.Diagnostic.new(
-                                severity,
-                                f"{_symbol} ({_code})\n{_message}",
-                                start,
-                             )
+                    severity,
+                    f"{_symbol} ({_code})\n{_message}",
+                    start,
+                )
                 if end is not None:
                     range_ = Ide.Range.new(start, end)
                     diagnostic.add_range(range_)
@@ -177,6 +214,11 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
             return diagnostics
         return None
 
+
+# FIXME: this thing does not work at all
+#        schema is visible in dconf editor
+#        but gnome builder seems to not find it
+#        is it cause by flatpack isolation?
 
 # class PythonLinterPreferencesAddin(GObject.Object, Ide.PreferencesAddin):
 #     """PythonLinterPreferencesAddin."""
