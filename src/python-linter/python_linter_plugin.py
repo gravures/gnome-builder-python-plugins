@@ -18,11 +18,12 @@
 #       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #       MA 02110-1301, USA.
 #
-# pylint: #disable=unused-argument
+# pylint: disable=unused-argument
 # pylint: disable=too-many-arguments, attribute-defined-outside-init
 # pylint: disable=too-many-locals, no-self-use
 #
 import os
+from enum import Enum
 from pathlib import Path
 import json
 import threading
@@ -39,17 +40,20 @@ from gi.repository import Ide
 _ = Ide.gettext
 
 
-SEVERITY_MAP = {
-    0: Ide.DiagnosticSeverity.IGNORED,
-    "convention": Ide.DiagnosticSeverity.NOTE,
-    "refactor": Ide.DiagnosticSeverity.NOTE,
-    "information": Ide.DiagnosticSeverity.NOTE,
-    2: Ide.DiagnosticSeverity.UNUSED,
-    3: Ide.DiagnosticSeverity.DEPRECATED,
-    "warning": Ide.DiagnosticSeverity.WARNING,
-    "error": Ide.DiagnosticSeverity.ERROR,
-    "fatal": Ide.DiagnosticSeverity.FATAL,
+SEVERITY = {
+    'ignored': Ide.DiagnosticSeverity.IGNORED,
+    'convention': Ide.DiagnosticSeverity.NOTE,
+    'refactor': Ide.DiagnosticSeverity.NOTE,
+    'information': Ide.DiagnosticSeverity.NOTE,
+    'deprecated': Ide.DiagnosticSeverity.DEPRECATED,
+    'warning': Ide.DiagnosticSeverity.WARNING,
+    'error': Ide.DiagnosticSeverity.ERROR,
+    'fatal': Ide.DiagnosticSeverity.FATAL,
+    'unused': Ide.DiagnosticSeverity.NOTE,
 }
+if Ide.MAJOR_VERSION >= 41:
+    SEVERITY['unused'] = Ide.DiagnosticSeverity.UNUSED
+
 
 UNUSED_CODE = [
     "W0641",
@@ -72,8 +76,33 @@ DEPRECATED_CODE = [
 
 
 class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
+    linter_enabled = GObject.Property(type=bool, default=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _gsettings = Gio.Settings(
+            schema="org.gnome.builder.plugins.python-linter"
+        )
+        _gsettings.bind(
+            "enable-python-linter",
+            self,
+            "linter_enabled",
+            Gio.SettingsBindFlags.DEFAULT,
+        )
+        self.connect("notify::linter-enabled", self.on_enable_cb)
+
+    def on_enable_cb(self, gparamstring, _):
+        """Callback when linter_enable property is changed,
+        ui should be update to reflect user change in preferences.
+        """
+        context = self.get_context()
+        if not context is None:
+            manager = Ide.DiagnosticsManager.from_context(context)
+            # FIXME: ui is not updated
+            manager.emit("changed")
+
     def create_launcher(self):
-        """create_launcher."""
+        """create the subprocess launcher."""
         context = self.get_context()
         srcdir = context.ref_workdir().get_path()
         launcher = None
@@ -93,7 +122,6 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
             Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE
         )
         launcher.set_cwd(srcdir)
-
         return launcher
 
     def do_diagnose_async(
@@ -103,8 +131,21 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
         task = Gio.Task.new(self, cancellable, callback)
         task.diagnostics_list = []
 
+        if not self.linter_enabled:
+            task.return_boolean(False)
+            return
+
         launcher = self.create_launcher()
 
+        # FIXME: Do we reaally need this Thread
+        # see: https://gitlab.gnome.org/GNOME/gnome-builder/-/issues/365
+        # src/plugins/eslint/eslint_plugin.py has an example, but I don't
+        # really like how it's doing things. It's using native threading
+        # in Python, which we should avoid. Just do things in a subprocess
+        # using Ide.SubprocessLauncher and call wait_async() on the subprocess,
+        # completing the task in the callback. (Or communicate_utf8_async()
+        # if you need the output).
+        #
         threading.Thread(
             target=self._execute,
             args=(task, launcher, file, file_content),
@@ -150,7 +191,7 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
                 start_col = max(item["column"], 0)
                 start = Ide.Location.new(file, start_line, start_col)
 
-                severity = SEVERITY_MAP[item["type"]]
+                severity = SEVERITY[item["type"]]
                 end = None
 
                 end_line = item.get("endLine", None)
@@ -175,11 +216,11 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
                 _code = item.get("message-id")
 
                 # Additional sorting
-                if severity is Ide.DiagnosticSeverity.WARNING:
+                if severity is SEVERITY['warning']:
                     if _code in UNUSED_CODE:
-                        severity = Ide.DiagnosticSeverity.UNUSED
+                        severity = SEVERITY['unused']
                     elif _code in DEPRECATED_CODE:
-                        severity = Ide.DiagnosticSeverity.DEPRECATED
+                        severity = SEVERITY['deprecated']
 
                 diagnostic = Ide.Diagnostic.new(
                     severity,
@@ -215,38 +256,46 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
         return None
 
 
-# FIXME: this thing does not work at all
-#        schema is visible in dconf editor
-#        but gnome builder seems to not find it
-#        is it cause by flatpack isolation?
+# FIXME: meson.build:glib-compile-schemas need to handle flatpack install
+class PythonLinterPreferencesAddin(GObject.Object, Ide.PreferencesAddin):
+    """PythonLinterPreferencesAddin."""
 
-# class PythonLinterPreferencesAddin(GObject.Object, Ide.PreferencesAddin):
-#     """PythonLinterPreferencesAddin."""
+    def do_load(self, preferences):
+        """
+        This interface method is called when a preferences addin is initialized.
+        It could be initialized from multiple preferences implementations,
+        so consumers should use the #DzlPreferences interface to add their
+        preferences controls to the container.
+        Such implementations might include a preferences dialog window,
+        or a preferences widget which could be rendered as a perspective.
+        """
+        self.python_linter_id = preferences.add_switch(
+            # to the code-insight page
+            "code-insight",
+            # in the diagnostics group
+            "diagnostics",
+            # mapping to the gsettings schema
+            "org.gnome.builder.plugins.python-linter",
+            # with the gsettings schema key
+            "enable-python-linter",
+            # And the gsettings path
+            None,
+            # The target GVariant value if necessary (usually not)
+            "false",
+            # title
+            "Python Linter",
+            # subtitle
+            "Enable the use of PyLint, which may execute code in your project",
+            # translators: these are keywords used to search for preferences
+            "pylint python lint code execute execution",
+            # with sort priority
+            500)
 
-#     def do_load(self, preferences):
-#         """do_load."""
-#         self.python_linter_id = preferences.add_switch(
-# to the code-insight page
-#             "code-insight",
-# in the diagnostics group
-#             "diagnostics",
-# mapping to the gsettings schema
-#             "org.gnome.builder.plugins.python-linter",
-# with the gsettings schema key
-#             "enable-python-linter",
-# And the gsettings path
-#             None,
-# The target GVariant value if necessary (usually not)
-#             "false",
-# title
-#             "Python Linter",
-# subtitle
-#             "Enable the use of PyLint, which may execute code in your project",
-# translators: these are keywords used to search for preferences
-#             "pylint python lint code execute execution",
-# with sort priority
-#             500)
-
-#     def do_unload(self, preferences):
-#         preferences.remove_id(self.python_linter_id)
+    def do_unload(self, preferences):
+        """This interface method is called when the preferences addin
+        should remove all controls added to @preferences. This could
+        happen during desctruction of preferences, or when the plugin
+        is unloaded.preferences.remove_id(self.python_linter_id)
+        """
+        preferences.remove_id(self.python_linter_id)
 
