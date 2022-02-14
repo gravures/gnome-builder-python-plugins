@@ -1,7 +1,7 @@
 project('gnome-builder-pep517-plugin',
          version: '0.1.0',
          license: 'GPL-3.0-or-later',
-    	 meson_version: '>= 0.53.0',
+    	 meson_version: '>= 0.55.0',
 )
 
 
@@ -15,6 +15,7 @@ gnome_builder = find_program('gnome-builder', required: true)
 if not gnome_builder.found()
 	error('Error: gnome-builder not found')
 else
+	message('Gnome-builder path: @0@'.format(gnome_builder.full_path()))
 	ret = run_command(gnome_builder, '--version')
 	if ret.stdout() == ''
 		error('can not obtain gnome-builder version.')
