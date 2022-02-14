@@ -23,63 +23,39 @@
 # pylint: disable=too-many-locals, no-self-use
 #
 import os
-from enum import Enum
-from pathlib import Path
 import json
 import threading
 
-# for raising an ImportError so our plugin wont load
-# if pylint is not installed.
-import pylint
 import gi
 
 from gi.repository import GLib, GObject, Gio
 from gi.repository import Ide
 
+from linters import PyLintAdapter, LinterError, AbstractLinterAdapter
+from preferences import PythonLinterPreferencesAddin
+
 
 _ = Ide.gettext
 
 
-SEVERITY = {
-    'ignored': Ide.DiagnosticSeverity.IGNORED,
-    'convention': Ide.DiagnosticSeverity.NOTE,
-    'refactor': Ide.DiagnosticSeverity.NOTE,
-    'information': Ide.DiagnosticSeverity.NOTE,
-    'deprecated': Ide.DiagnosticSeverity.DEPRECATED,
-    'warning': Ide.DiagnosticSeverity.WARNING,
-    'error': Ide.DiagnosticSeverity.ERROR,
-    'fatal': Ide.DiagnosticSeverity.FATAL,
-    'unused': Ide.DiagnosticSeverity.NOTE,
-}
-if Ide.MAJOR_VERSION >= 41:
-    SEVERITY['unused'] = Ide.DiagnosticSeverity.UNUSED
-
-
-UNUSED_CODE = [
-    "W0641",
-    "W0613",
-    "W1304",
-    "W1301",
-    "W0611",
-    "W0238",
-    "W0612",
-    "W0614",
-]
-
-DEPRECATED_CODE = [
-    "W1511",
-    "W1512",
-    "W1513",
-    "W1505",
-    "W0402",
-]
-
-
 class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
     linter_enabled = GObject.Property(type=bool, default=True)
+    _linter_adapter = None
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    @GObject.property
+    def linter_adapter(self):
+        return self._linter_adapter
+
+    @linter_adapter.setter
+    def linter_adapter(self, value):
+        if not isinstance(value, AbstractLinterAdapter):
+            raise TypeError(
+                "property should be a subclass of AbstractLinterAdapter"
+            )
+        self._linter_adapter = value
+
+    def __init__(self):
+        super().__init__()
         _gsettings = Gio.Settings(
             schema="org.gnome.builder.plugins.python-linter"
         )
@@ -90,8 +66,9 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
             Gio.SettingsBindFlags.DEFAULT,
         )
         self.connect("notify::linter-enabled", self.on_enable_cb)
+        self._linter_adapter = PyLintAdapter()
 
-    def on_enable_cb(self, gparamstring, _):
+    def on_enable_cb(self, _gparamstring, _):
         """Callback when linter_enable property is changed,
         ui should be update to reflect user change in preferences.
         """
@@ -121,6 +98,14 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
         launcher.set_flags(
             Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE
         )
+
+        # Propagate linter env variables
+        config_manager = Ide.ConfigManager.from_context(context)
+        config = config_manager.get_current()
+        environ = self.linter_adapter.get_environ(config)
+        for k, v in environ.items():
+            launcher.setenv(k, v, True)
+
         launcher.set_cwd(srcdir)
         return launcher
 
@@ -149,98 +134,26 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
         threading.Thread(
             target=self._execute,
             args=(task, launcher, file, file_content),
-            name="pylint-thread",
+            name="pylinter-thread",
         ).start()
 
     def _execute(self, task, launcher, file, file_content):
         try:
-            launcher.push_args(
-                (
-                    "pylint",
-                    "--output-format",
-                    "json",
-                    "--persistent",
-                    "n",
-                    "-j",
-                    "1",
-                    "--exit-zero",
-                )
-            )
-
-            if file_content:
-                launcher.push_argv("--from-stdin")
-                launcher.push_argv(file.get_path())
-            else:
-                launcher.push_argv(file.get_path())
-
-            sub_process = launcher.spawn()
             stdin = file_content.get_data().decode("UTF-8")
+            self.linter_adapter.set_file(file, stdin)
+            launcher.push_args(self.linter_adapter.get_args())
+            sub_process = launcher.spawn()
             success, stdout, _stderr = sub_process.communicate_utf8(stdin, None)
 
             if not success:
                 task.return_boolean(False)
                 return
 
-            results = json.loads(stdout)
-            for item in results:
-                line = item.get("line", None)
-                column = item.get("column", None)
-                if not line or not column:
-                    continue
-                start_line = max(item["line"] - 1, 0)
-                start_col = max(item["column"], 0)
-                start = Ide.Location.new(file, start_line, start_col)
-
-                severity = SEVERITY[item["type"]]
-                end = None
-
-                end_line = item.get("endLine", None)
-                end_col = item.get("endColumn", None)
-                if end_line and end_col:
-                    end_line = max(end_line - 1, 0)
-                    end_col = max(end_col, 0)
-                    if not severity in (
-                        Ide.DiagnosticSeverity.ERROR,
-                        Ide.DiagnosticSeverity.FATAL,
-                    ):
-                        # make underlined run on multiple lines
-                        # only for hight severity code
-                        end_col = (
-                            start_col if start_line != end_line else end_col
-                        )
-                        end_line = start_line
-                    end = Ide.Location.new(file, end_line, end_col)
-
-                _symbol = item.get("symbol")
-                _message = item.get("message")
-                _code = item.get("message-id")
-
-                # Additional sorting
-                if severity is SEVERITY['warning']:
-                    if _code in UNUSED_CODE:
-                        severity = SEVERITY['unused']
-                    elif _code in DEPRECATED_CODE:
-                        severity = SEVERITY['deprecated']
-
-                diagnostic = Ide.Diagnostic.new(
-                    severity,
-                    f"{_symbol} ({_code})\n{_message}",
-                    start,
-                )
-                if end is not None:
-                    range_ = Ide.Range.new(start, end)
-                    diagnostic.add_range(range_)
-                    # if 'fix' in message:
-                    # Fixes often come without end* information so we
-                    # will rarely get here, instead it has a file offset
-                    # which is not actually implemented in IdeSourceLocation
-                    # fixit = Ide.Fixit.new(range_, message['fix']['text'])
-                    # diagnostic.take_fixit(fixit)
-
+            for diagnostic in self.linter_adapter.diagnostics(stdout):
                 task.diagnostics_list.append(diagnostic)
         except GLib.Error as err:
             task.return_error(err)
-        except (json.JSONDecodeError, UnicodeDecodeError, IndexError) as err:
+        except (LinterError, UnicodeDecodeError, IndexError) as err:
             task.return_error(
                 GLib.Error(f"Failed to decode pylint json: {err}")
             )
@@ -255,47 +168,4 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
             return diagnostics
         return None
 
-
-# FIXME: meson.build:glib-compile-schemas need to handle flatpack install
-class PythonLinterPreferencesAddin(GObject.Object, Ide.PreferencesAddin):
-    """PythonLinterPreferencesAddin."""
-
-    def do_load(self, preferences):
-        """
-        This interface method is called when a preferences addin is initialized.
-        It could be initialized from multiple preferences implementations,
-        so consumers should use the #DzlPreferences interface to add their
-        preferences controls to the container.
-        Such implementations might include a preferences dialog window,
-        or a preferences widget which could be rendered as a perspective.
-        """
-        self.python_linter_id = preferences.add_switch(
-            # to the code-insight page
-            "code-insight",
-            # in the diagnostics group
-            "diagnostics",
-            # mapping to the gsettings schema
-            "org.gnome.builder.plugins.python-linter",
-            # with the gsettings schema key
-            "enable-python-linter",
-            # And the gsettings path
-            None,
-            # The target GVariant value if necessary (usually not)
-            "false",
-            # title
-            "Python Linter",
-            # subtitle
-            "Enable the use of PyLint, which may execute code in your project",
-            # translators: these are keywords used to search for preferences
-            "pylint python lint code execute execution",
-            # with sort priority
-            500)
-
-    def do_unload(self, preferences):
-        """This interface method is called when the preferences addin
-        should remove all controls added to @preferences. This could
-        happen during desctruction of preferences, or when the plugin
-        is unloaded.preferences.remove_id(self.python_linter_id)
-        """
-        preferences.remove_id(self.python_linter_id)
 

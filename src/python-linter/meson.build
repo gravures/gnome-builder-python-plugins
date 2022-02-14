@@ -6,7 +6,11 @@ requires += ['pylint=2.12']
 
 plugindir = 'python-linter'
 
-py_src = ['python_linter_plugin.py']
+py_src = ['python_linter_plugin.py',
+	  'linters.py',
+	  'preferences.py',
+	  'preferences_entry.py',
+	  'preferences_entry.ui']
 
 configure_file(
 	input: files('python_linter.plugin.in'),

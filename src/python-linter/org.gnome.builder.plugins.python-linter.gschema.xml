@@ -7,5 +7,10 @@
       <summary>Enable Python Linter</summary>
       <description>Enable the use of pylint to find additional diagnostics in Python files. This may result in the execution of code in your project.</description>
     </key>
+    <key name= "ext-modules" type="s">
+      <default>""</default>
+      <summary>Pylint extension modules</summary>
+      <description>A comma-separated list of package or module names from where C extensions may be loaded. Extensions are loading into the active Python interpreter and may run arbitrary code.</description>
+    </key>
   </schema>
 </schemalist>
