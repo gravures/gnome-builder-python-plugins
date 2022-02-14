@@ -58,17 +58,6 @@ class AbstractLinterAdapter(ABC):
     ):
         """Return an Ide.Diagnostic."""
 
-        if not severity in (
-            Ide.DiagnosticSeverity.ERROR,
-            Ide.DiagnosticSeverity.FATAL,
-        ):
-            # make underlined run on multiple lines
-            # only for hight severity code
-            end_col = (
-                start_col if start_line != end_line else end_col
-            )
-            end_line = start_line
-
         start = Ide.Location.new(file, start_line, start_col)
         end = Ide.Location.new(file, end_line, end_col)
         diagnostic_ = Ide.Diagnostic.new(
@@ -79,6 +68,14 @@ class AbstractLinterAdapter(ABC):
         range_ = Ide.Range.new(start, end)
         diagnostic_.add_range(range_)
         return diagnostic_
+
+    def find_end_col(self, line, start):
+        if self.file_content:
+            _line = self.file_content.splitlines()[line]
+            end = _line.find(" ", start)
+            end = len(_line) - 1 if end == -1 else end
+            return end
+        return start
 
     @abstractmethod
     def get_args(self):
@@ -91,6 +88,84 @@ class AbstractLinterAdapter(ABC):
     @abstractmethod
     def diagnostics(self, stdout):
         pass
+
+
+class Flake8Adapter(AbstractLinterAdapter):
+    SEVERITY = {
+        'ignored': Ide.DiagnosticSeverity.IGNORED,
+        'convention': Ide.DiagnosticSeverity.NOTE,
+        'refactor': Ide.DiagnosticSeverity.NOTE,
+        'information': Ide.DiagnosticSeverity.NOTE,
+        'D': Ide.DiagnosticSeverity.DEPRECATED,  # plugin flake8-deprecated
+        'W': Ide.DiagnosticSeverity.WARNING,
+        'E': Ide.DiagnosticSeverity.ERROR,  # pyCodeStyle errors
+        'F': Ide.DiagnosticSeverity.FATAL,  # PyFlakes errors
+        'C': Ide.DiagnosticSeverity.WARNING,  # McCabe complexity
+        'B': Ide.DiagnosticSeverity.WARNING,  # bugBear plugin
+        'unused': Ide.DiagnosticSeverity.NOTE,
+    }
+    if Ide.MAJOR_VERSION >= 41:
+        SEVERITY['unused'] = Ide.DiagnosticSeverity.UNUSED
+
+    UNUSED_CODE = [
+        "F401",
+        "F504",
+        "F522",
+        "F523",
+        "F811",
+    ]
+
+    def __init__(self):
+        super().__init__()
+        self.linter = "flake8"
+
+    def get_environ(self, config):
+        return {}
+
+    def get_args(self):
+        _format = "%(row)d|%(col)d|%(code)s|%(text)s"
+        args = ["python", '-m',
+                self.linter,
+                "--no-show-source",
+                "--format", _format,
+                "--max-line-length", "80",  # FIXME
+                "--indent-size", "4",       # FIXME
+                "-j", "auto",
+                "--exit-zero"]
+
+        if self.file_content:
+            args += ["--stdin-display-name",
+                     self.file.get_path(),
+                     "-"]
+        else:
+            args += [self.file.get_path()]
+        return tuple(args)
+
+    def diagnostics(self, stdout):
+        warnings = stdout.splitlines()
+        for _warn in warnings:
+            elmnts = _warn.split("|")
+            if len(elmnts) < 4:
+                continue
+            end_line = start_line = max(int(elmnts[0]) - 1, 0)
+            start_col = max(int(elmnts[1]) - 1, 0)
+            end_col = self.find_end_col(start_line, start_col)
+            symbol = ""
+            _id = elmnts[2]
+            message = elmnts[3]
+            severity = Flake8Adapter.SEVERITY.get(
+                _id[:1], Flake8Adapter.SEVERITY['information']
+            )
+
+            # Additional sorting
+            if severity is Flake8Adapter.SEVERITY['F']:
+                if _id in Flake8Adapter.UNUSED_CODE:
+                    severity = Flake8Adapter.SEVERITY['unused']
+
+            yield Flake8Adapter._diagnostic(
+                self.file, start_line, start_col, end_line, end_col,
+                severity, symbol, _id, message,
+            )
 
 
 class PyLintAdapter(AbstractLinterAdapter):
@@ -136,14 +211,20 @@ class PyLintAdapter(AbstractLinterAdapter):
         self.linter = "pylint"
 
     def get_environ(self, config):
-        pylint_rc = config.getenv("PYLINTRC")
-        env = {"PYLINTRC": pylint_rc} if pylint_rc else {}
-        return env
+        if config:
+            pylint_rc = config.getenv("PYLINTRC")
+            env = {"PYLINTRC": pylint_rc} if pylint_rc else {}
+            return env
+        return {}
 
     def get_args(self):
-        args = [self.linter, "--output-format",
-            "json", "--persistent", "n", "-j", "0",
-            "--score", "n", "--exit-zero"]
+        args = ["python", '-m',
+                self.linter,
+                "--output-format", "json",
+                "--persistent", "n",
+                "-j", "0",
+                "--score", "n",
+                "--exit-zero"]
         if self.file_content:
             args += ["--from-stdin", self.file.get_path()]
         else:
@@ -171,9 +252,11 @@ class PyLintAdapter(AbstractLinterAdapter):
                 end_col = max(end_col, 0)
             else:
                 end_line = start_line
-                end_col = start_col
+                end_col = self.find_end_col(start_line, start_col)
 
-            severity = PyLintAdapter.SEVERITY[item["type"]]
+            severity = PyLintAdapter.SEVERITY.get(
+                item["type"], PyLintAdapter.SEVERITY['information']
+            )
             symbol = item.get("symbol")
             message = item.get("message")
             _id = item.get("message-id")
@@ -187,9 +270,18 @@ class PyLintAdapter(AbstractLinterAdapter):
                 elif _id in PyLintAdapter.NOTE_CODE:
                     severity = PyLintAdapter.SEVERITY['information']
 
+            if severity not in (
+                Ide.DiagnosticSeverity.ERROR,
+                Ide.DiagnosticSeverity.FATAL,
+            ):
+                # make underlined run on multiple lines
+                # only for hight severity code
+                if start_line != end_line:
+                    end_col = self.find_end_col(start_line, start_col)
+                end_line = start_line
+
             yield PyLintAdapter._diagnostic(
                 self.file, start_line, start_col, end_line, end_col,
                 severity, symbol, _id, message,
             )
-
 

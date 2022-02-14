@@ -22,8 +22,6 @@
 # pylint: disable=too-many-arguments, attribute-defined-outside-init
 # pylint: disable=too-many-locals, no-self-use
 #
-import os
-import json
 import threading
 
 import gi
@@ -31,7 +29,8 @@ import gi
 from gi.repository import GLib, GObject, Gio
 from gi.repository import Ide
 
-from linters import PyLintAdapter, LinterError, AbstractLinterAdapter
+from linters import LinterError, AbstractLinterAdapter
+from linters import PyLintAdapter, Flake8Adapter
 from preferences import PythonLinterPreferencesAddin
 
 
@@ -66,14 +65,16 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
             Gio.SettingsBindFlags.DEFAULT,
         )
         self.connect("notify::linter-enabled", self.on_enable_cb)
-        self._linter_adapter = PyLintAdapter()
+
+        # TODO: linter selection
+        self._linter_adapter = Flake8Adapter()  # PyLintAdapter()
 
     def on_enable_cb(self, _gparamstring, _):
         """Callback when linter_enable property is changed,
         ui should be update to reflect user change in preferences.
         """
         context = self.get_context()
-        if not context is None:
+        if context is not None:
             manager = Ide.DiagnosticsManager.from_context(context)
             # FIXME: ui is not updated
             manager.emit("changed")
@@ -167,5 +168,4 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
                 diagnostics.add(diag)
             return diagnostics
         return None
-
 
