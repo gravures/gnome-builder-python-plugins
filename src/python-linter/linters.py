@@ -25,7 +25,7 @@ import json
 from abc import ABC, abstractmethod
 
 import gi  # noqa
-from gi.repository import Gio, Ide, GLib
+from gi.repository import Gio, GLib, Ide
 
 
 class LinterError(Exception):
@@ -124,6 +124,7 @@ class AbstractLinterAdapter(ABC):
 class Flake8Adapter(AbstractLinterAdapter):
     linter = "flake8"
 
+    # TODO: better severity mapping
     SEVERITY = {
         'ignored': Ide.DiagnosticSeverity.IGNORED,
         'convention': Ide.DiagnosticSeverity.NOTE,
@@ -152,13 +153,19 @@ class Flake8Adapter(AbstractLinterAdapter):
         return {}
 
     def get_args(self):
+        gsetttings = Gio.Settings.new_with_path(
+            "org.gnome.builder.editor.language",
+            "/org/gnome/builder/editor/language/python3/"
+        )
+        max_line_length = str(gsetttings.get_int("right-margin-position"))
+        indent_size = str(gsetttings.get_int("tab-width"))
         _format = "%(row)d|%(col)d|%(code)s|%(text)s"
         args = ["python", '-m',
                 Flake8Adapter.linter,
                 "--no-show-source",
                 "--format", _format,
-                "--max-line-length", "80",  # FIXME
-                "--indent-size", "4",       # FIXME
+                "--max-line-length", max_line_length,
+                "--indent-size", indent_size,
                 "-j", "auto",
                 "--exit-zero"]
 
