@@ -320,5 +320,7 @@ def get_linters():
 def get_adapter_class(name):
     for linter in get_linters():
         if linter.linter == name:
-            return linter
+            version = linter.get_version()
+            _ret = linter if version else None
+            return _ret
     return None
