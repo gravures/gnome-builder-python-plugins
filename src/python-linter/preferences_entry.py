@@ -22,14 +22,13 @@
 # pylint: disable=too-many-locals, no-self-use
 #
 from pathlib import Path
-import gi
 
-from gi.repository import GLib, GObject, Gio
-from gi.repository import Gtk, Dazzle
-from gi.repository import Ide
+import gi  # noqa
+from gi.repository import GObject, Gtk, Dazzle
 
 
 UI = str(Path(__file__).parent / "preferences_entry.ui")
+
 
 @Gtk.Template(filename=UI)
 class PreferencesEntry(Dazzle.PreferencesBin):
@@ -40,6 +39,7 @@ class PreferencesEntry(Dazzle.PreferencesBin):
     title = GObject.Property(type=str, default="")
     subtitle = GObject.Property(type=str, default="")
     _key = ""
+
     @GObject.Property(type=str)
     def key(self):
         return self._key
@@ -51,7 +51,6 @@ class PreferencesEntry(Dazzle.PreferencesBin):
     title_label = Gtk.Template.Child()
     subtitle_label = Gtk.Template.Child()
     entry = Gtk.Template.Child()
-
 
     def __new__(
         cls, schema_id, key, path, title, subtitle, priority
@@ -71,10 +70,16 @@ class PreferencesEntry(Dazzle.PreferencesBin):
         )
         self.init_template()
         self.bind_property(
-            "title", self.title_label, "label", GObject.BindingFlags.DEFAULT
+            "title",
+            self.title_label,
+            "label",
+            GObject.BindingFlags.DEFAULT
         )
         self.bind_property(
-            "subtitle", self.subtitle_label, "label", GObject.BindingFlags.DEFAULT
+            "subtitle",
+            self.subtitle_label,
+            "label",
+            GObject.BindingFlags.DEFAULT
         )
         self.props.title = title
         self.props.subtitle = subtitle
