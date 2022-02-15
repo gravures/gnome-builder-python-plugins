@@ -50,8 +50,7 @@ class AbstractLinterAdapter(ABC):
 
     @classmethod
     def get_name(cls):
-        name = cls.linter if cls.linter else ""
-        return name
+        return cls.linter if cls.linter else ""
 
     @classmethod
     def get_version(cls):
@@ -104,8 +103,7 @@ class AbstractLinterAdapter(ABC):
         if self.file_content:
             _line = self.file_content.splitlines()[line]
             end = _line.find(" ", start)
-            end = len(_line) - 1 if end == -1 else end
-            return end
+            return len(_line) - 1 if end == -1 else end
         return start
 
     @abstractmethod
@@ -122,24 +120,28 @@ class AbstractLinterAdapter(ABC):
 
 
 class Flake8Adapter(AbstractLinterAdapter):
-    linter = "flake8"
 
-    # TODO: better severity mapping
     SEVERITY = {
         'ignored': Ide.DiagnosticSeverity.IGNORED,
         'convention': Ide.DiagnosticSeverity.NOTE,
         'refactor': Ide.DiagnosticSeverity.NOTE,
         'information': Ide.DiagnosticSeverity.NOTE,
-        'D': Ide.DiagnosticSeverity.DEPRECATED,  # plugin flake8-deprecated
+        'D': Ide.DiagnosticSeverity.DEPRECATED,  # plugin deprecated
         'W': Ide.DiagnosticSeverity.WARNING,
         'E': Ide.DiagnosticSeverity.ERROR,  # pyCodeStyle errors
         'F': Ide.DiagnosticSeverity.FATAL,  # PyFlakes errors
         'C': Ide.DiagnosticSeverity.WARNING,  # McCabe complexity
         'B': Ide.DiagnosticSeverity.WARNING,  # bugBear plugin
-        'unused': Ide.DiagnosticSeverity.NOTE,
+        'A': Ide.DiagnosticSeverity.WARNING,  # builtins plugin
+        'R': Ide.DiagnosticSeverity.WARNING,  # return plugin
+        'I': Ide.DiagnosticSeverity.NOTE,  # isort plugin
+        'T': Ide.DiagnosticSeverity.NOTE,  # fixme plugin
+        'DC': Ide.DiagnosticSeverity.NOTE,  # docstring-checker plugin
+        'CLST': Ide.DiagnosticSeverity.ERROR,  # classmethod-staticmethod plugin
+        'CCE': Ide.DiagnosticSeverity.ERROR,  # function-order plugin
+        'unused': (Ide.DiagnosticSeverity.UNUSED if Ide.MAJOR_VERSION >= 41 else
+                   Ide.DiagnosticSeverity.NOTE),
     }
-    if Ide.MAJOR_VERSION >= 41:
-        SEVERITY['unused'] = Ide.DiagnosticSeverity.UNUSED
 
     UNUSED_CODE = [
         "F401",
@@ -148,6 +150,8 @@ class Flake8Adapter(AbstractLinterAdapter):
         "F523",
         "F811",
     ]
+
+    linter = "flake8"
 
     def get_environ(self, config):
         return {}
@@ -190,7 +194,8 @@ class Flake8Adapter(AbstractLinterAdapter):
             _id = elmnts[2]
             message = elmnts[3]
             severity = Flake8Adapter.SEVERITY.get(
-                _id[:1], Flake8Adapter.SEVERITY['information']
+                _id.strip("0123456789"),
+                Flake8Adapter.SEVERITY['information']
             )
 
             # Additional sorting
@@ -205,7 +210,6 @@ class Flake8Adapter(AbstractLinterAdapter):
 
 
 class PyLintAdapter(AbstractLinterAdapter):
-    linter = "pylint"
 
     SEVERITY = {
         'ignored': Ide.DiagnosticSeverity.IGNORED,
@@ -216,10 +220,9 @@ class PyLintAdapter(AbstractLinterAdapter):
         'warning': Ide.DiagnosticSeverity.WARNING,
         'error': Ide.DiagnosticSeverity.ERROR,
         'fatal': Ide.DiagnosticSeverity.FATAL,
-        'unused': Ide.DiagnosticSeverity.NOTE,
+        'unused': (Ide.DiagnosticSeverity.UNUSED if Ide.MAJOR_VERSION >= 41 else
+                   Ide.DiagnosticSeverity.NOTE),
     }
-    if Ide.MAJOR_VERSION >= 41:
-        SEVERITY['unused'] = Ide.DiagnosticSeverity.UNUSED
 
     UNUSED_CODE = [
         "W0641",
@@ -244,11 +247,12 @@ class PyLintAdapter(AbstractLinterAdapter):
         "W0511"     # put fixme, todo in information not in warnings
     ]
 
+    linter = "pylint"
+
     def get_environ(self, config):
         if config:
             pylint_rc = config.getenv("PYLINTRC")
-            env = {"PYLINTRC": pylint_rc} if pylint_rc else {}
-            return env
+            return {"PYLINTRC": pylint_rc} if pylint_rc else {}
         return {}
 
     def get_args(self):
