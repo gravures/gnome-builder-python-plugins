@@ -24,14 +24,14 @@
 #
 import threading
 
-import gi
+import gi  # noqa
 
 from gi.repository import GLib, GObject, Gio
 from gi.repository import Ide
 
+import linters
 from linters import LinterError, AbstractLinterAdapter
-from linters import PyLintAdapter, Flake8Adapter
-from preferences import PythonLinterPreferencesAddin
+from preferences import PythonLinterPreferencesAddin  # noqa
 
 
 _ = Ide.gettext
@@ -66,8 +66,11 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
         )
         self.connect("notify::linter-enabled", self.on_enable_cb)
 
-        # TODO: linter selection
-        self._linter_adapter = Flake8Adapter()  # PyLintAdapter()
+        # linter selection
+        linter_name = _gsettings.get_string("linter-name")
+        _class = linters.get_adapter_class(linter_name)
+        if _class:
+            self._linter_adapter = _class()
 
     def on_enable_cb(self, _gparamstring, _):
         """Callback when linter_enable property is changed,
@@ -117,7 +120,7 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
         task = Gio.Task.new(self, cancellable, callback)
         task.diagnostics_list = []
 
-        if not self.linter_enabled:
+        if not self.linter_enabled or not self.linter_adapter:
             task.return_boolean(False)
             return
 

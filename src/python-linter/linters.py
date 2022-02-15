@@ -24,24 +24,55 @@
 import json
 from abc import ABC, abstractmethod
 
-import gi
-from gi.repository import Gio, Ide
+import gi  # noqa
+from gi.repository import Gio, Ide, GLib
 
 
 class LinterError(Exception):
     """Exception raised by LinterAdapter."""
-
     def __init__(self, message):
         self.message = message
         super().__init__(message)
 
 
+VERSION_HOOK = """import @LINTER@
+
+print(@LINTER@.__version__)
+"""
+
+
 class AbstractLinterAdapter(ABC):
+    linter = None
 
     def __init__(self):
         self.file = None
         self.file_content = None
-        self.linter = None
+
+    @classmethod
+    def get_name(cls):
+        name = cls.linter if cls.linter else ""
+        return name
+
+    @classmethod
+    def get_version(cls):
+        if cls.linter is None:
+            return None
+        try:
+            launcher = Ide.SubprocessLauncher()
+            launcher.set_flags(
+                Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDIN_PIPE
+            )
+            launcher.set_run_on_host(True)
+            launcher.push_args(['python', '-'])
+            subprocess = launcher.spawn()
+            stdin = VERSION_HOOK.replace("@LINTER@", cls.get_name(), 2)
+            success, stdout, stderr = subprocess.communicate_utf8(stdin, None)
+            if not success:
+                print(f"DEBUG: {stderr} {stdout} ret({success})")
+                return None
+            return stdout
+        except GLib.Error:
+            return None
 
     def set_file(self, file, file_content):
         if not isinstance(file, Gio.File):
@@ -91,6 +122,8 @@ class AbstractLinterAdapter(ABC):
 
 
 class Flake8Adapter(AbstractLinterAdapter):
+    linter = "flake8"
+
     SEVERITY = {
         'ignored': Ide.DiagnosticSeverity.IGNORED,
         'convention': Ide.DiagnosticSeverity.NOTE,
@@ -115,17 +148,13 @@ class Flake8Adapter(AbstractLinterAdapter):
         "F811",
     ]
 
-    def __init__(self):
-        super().__init__()
-        self.linter = "flake8"
-
     def get_environ(self, config):
         return {}
 
     def get_args(self):
         _format = "%(row)d|%(col)d|%(code)s|%(text)s"
         args = ["python", '-m',
-                self.linter,
+                Flake8Adapter.linter,
                 "--no-show-source",
                 "--format", _format,
                 "--max-line-length", "80",  # FIXME
@@ -169,6 +198,8 @@ class Flake8Adapter(AbstractLinterAdapter):
 
 
 class PyLintAdapter(AbstractLinterAdapter):
+    linter = "pylint"
+
     SEVERITY = {
         'ignored': Ide.DiagnosticSeverity.IGNORED,
         'convention': Ide.DiagnosticSeverity.NOTE,
@@ -206,10 +237,6 @@ class PyLintAdapter(AbstractLinterAdapter):
         "W0511"     # put fixme, todo in information not in warnings
     ]
 
-    def __init__(self):
-        super().__init__()
-        self.linter = "pylint"
-
     def get_environ(self, config):
         if config:
             pylint_rc = config.getenv("PYLINTRC")
@@ -219,7 +246,7 @@ class PyLintAdapter(AbstractLinterAdapter):
 
     def get_args(self):
         args = ["python", '-m',
-                self.linter,
+                PyLintAdapter.linter,
                 "--output-format", "json",
                 "--persistent", "n",
                 "-j", "0",
@@ -281,7 +308,17 @@ class PyLintAdapter(AbstractLinterAdapter):
                 end_line = start_line
 
             yield PyLintAdapter._diagnostic(
-                self.file, start_line, start_col, end_line, end_col,
-                severity, symbol, _id, message,
+                self.file, start_line, start_col, end_line,
+                end_col, severity, symbol, _id, message,
             )
 
+
+def get_linters():
+    return [PyLintAdapter, Flake8Adapter]
+
+
+def get_adapter_class(name):
+    for linter in get_linters():
+        if linter.linter == name:
+            return linter
+    return None
