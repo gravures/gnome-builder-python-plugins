@@ -4,6 +4,8 @@ project('gnome-builder-pep517-plugin',
     	 meson_version: '>= 0.55.0',
 )
 
+# plugins to install
+plugins_list = get_option('plugins')
 
 # Requirements python modules that are required by our plugins
 python_requires = {}
@@ -45,10 +47,17 @@ message('Configure build for ABI version @0@'.format(abi_version))
 prefix = get_option('prefix')
 datadir = join_paths(prefix, get_option('datadir'))
 builder_plugindir = join_paths(datadir, 'gnome-builder/plugins')
-schemas_dir = join_paths(datadir, 'glib-2.0/schemas')
+if get_option('flatpak')
+	flatpak = join_paths(datadir, 'flatpak/app/org.gnome.Builder/current/active/files/share/')
+	schemas_dir = join_paths(flatpak, 'glib-2.0/schemas')
+	message('Will install gnome-builder preferences for flatpak')
+else
+	schemas_dir = join_paths(datadir, 'glib-2.0/schemas')
+endif
 
 
 # include
+message('Will configure those plugin(s): @0@'.format(', '.join(plugins_list)))
 subdir('src')
 
 
