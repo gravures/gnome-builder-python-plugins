@@ -53,7 +53,7 @@ $ meson build --prefix=~/.local -Dplugins=python-linter,python-517-build
 
 ## Flatpak specific installation
 
-To install plugins for your gnome-builder flatpak's distribution:
+To install plugins for your gnome-builder flatpak's distribution use the -Dflatpak option:
 
 ```
 $ meson build --prefix=~/.local -Dflatpak=true
@@ -96,7 +96,7 @@ Currently the only supported build backend is the **Pypa** [build](https://pypa-
 
 ## python-linter plugin
 
-Provide integration with [PyLint](https://pylint.org/) and [Flake8]([Flake8: Your Tool For Style Guide Enforcement &mdash; flake8 4.0.1 documentation](https://flake8.pycqa.org/en/latest/index.html#)) Python linters.
+Provide integration with [PyLint](https://pylint.org/) and [Flake8](https://flake8.pycqa.org/en/latest/index.html) Python linters.
 
 ##### plugin requirements:
 
