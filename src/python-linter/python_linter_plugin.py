@@ -25,7 +25,6 @@
 import threading
 
 import gi  # noqa
-
 from gi.repository import GLib, GObject, Gio
 from gi.repository import Ide
 
@@ -33,25 +32,12 @@ import linters
 from linters import LinterError, AbstractLinterAdapter
 from preferences import PythonLinterPreferencesAddin  # noqa
 
-
 _ = Ide.gettext
 
 
 class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
     linter_enabled = GObject.Property(type=bool, default=True)
     _linter_adapter = None
-
-    @GObject.property
-    def linter_adapter(self):
-        return self._linter_adapter
-
-    @linter_adapter.setter
-    def linter_adapter(self, value):
-        if not isinstance(value, AbstractLinterAdapter):
-            raise TypeError(
-                "property should be a subclass of AbstractLinterAdapter"
-            )
-        self._linter_adapter = value
 
     def __init__(self):
         super().__init__()
@@ -72,6 +58,18 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
         if _class:
             self._linter_adapter = _class()
 
+    @GObject.property
+    def linter_adapter(self):
+        return self._linter_adapter
+
+    @linter_adapter.setter
+    def linter_adapter(self, value):
+        if not isinstance(value, AbstractLinterAdapter):
+            raise TypeError(
+                "property should be a subclass of AbstractLinterAdapter"
+            )
+        self._linter_adapter = value
+
     def on_enable_cb(self, _gparamstring, _):
         """Callback when linter_enable property is changed,
         ui should be update to reflect user change in preferences.
@@ -79,8 +77,11 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
         context = self.get_context()
         if context is not None:
             manager = Ide.DiagnosticsManager.from_context(context)
-            # FIXME: ui is not updated
-            manager.emit("changed")
+            buf_manager = Ide.BufferManager.from_context(context)
+            buf_manager.foreach(
+                lambda buffer, manager: manager.rediagnose(buffer),
+                manager
+            )
 
     def create_launcher(self):
         """create the subprocess launcher."""
@@ -126,20 +127,19 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
 
         launcher = self.create_launcher()
 
-        # FIXME: Do we reaally need this Thread
-        # see: https://gitlab.gnome.org/GNOME/gnome-builder/-/issues/365
-        # src/plugins/eslint/eslint_plugin.py has an example, but I don't
-        # really like how it's doing things. It's using native threading
-        # in Python, which we should avoid. Just do things in a subprocess
-        # using Ide.SubprocessLauncher and call wait_async() on the subprocess,
-        # completing the task in the callback. (Or communicate_utf8_async()
-        # if you need the output).
-        #
         threading.Thread(
             target=self._execute,
             args=(task, launcher, file, file_content),
             name="pylinter-thread",
         ).start()
+
+    def do_diagnose_finish(self, result):
+        if result.propagate_boolean():
+            diagnostics = Ide.Diagnostics()
+            for diag in result.diagnostics_list:
+                diagnostics.add(diag)
+            return diagnostics
+        return None
 
     def _execute(self, task, launcher, file, file_content):
         try:
@@ -163,12 +163,4 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
             )
         else:
             task.return_boolean(True)
-
-    def do_diagnose_finish(self, result):
-        if result.propagate_boolean():
-            diagnostics = Ide.Diagnostics()
-            for diag in result.diagnostics_list:
-                diagnostics.add(diag)
-            return diagnostics
-        return None
 
