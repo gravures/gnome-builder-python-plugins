@@ -17,15 +17,10 @@
 #       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #       MA 02110-1301, USA.
 #
-# pylint: disable=unused-argument
-# pylint: disable=too-many-arguments, attribute-defined-outside-init
-# pylint: disable=too-many-locals, no-self-use
-#
 from pathlib import Path
 
 import gi  # noqa
-from gi.repository import GObject, Gtk, Dazzle
-
+from gi.repository import Dazzle, GObject, Gtk
 
 UI = str(Path(__file__).parent / "preferences_entry.ui")
 
@@ -39,14 +34,6 @@ class PreferencesEntry(Dazzle.PreferencesBin):
     title = GObject.Property(type=str, default="")
     subtitle = GObject.Property(type=str, default="")
     _key = ""
-
-    @GObject.Property(type=str)
-    def key(self):
-        return self._key
-
-    @key.setter
-    def key(self, value):
-        self._key = value
 
     title_label = Gtk.Template.Child()
     subtitle_label = Gtk.Template.Child()
@@ -83,6 +70,14 @@ class PreferencesEntry(Dazzle.PreferencesBin):
         )
         self.props.title = title
         self.props.subtitle = subtitle
+
+    @GObject.Property(type=str)
+    def key(self):
+        return self._key
+
+    @key.setter
+    def key(self, value):
+        self._key = value
 
     def do_connect(self, gsettings):
         value = gsettings.get_string(self.key)

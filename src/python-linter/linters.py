@@ -17,10 +17,6 @@
 #       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #       MA 02110-1301, USA.
 #
-# pylint: disable=unused-argument
-# pylint: disable=too-many-arguments, attribute-defined-outside-init
-# pylint: disable=too-many-locals, no-self-use
-#
 import json
 from abc import ABC, abstractmethod
 
@@ -73,14 +69,6 @@ class AbstractLinterAdapter(ABC):
         except GLib.Error:
             return None
 
-    def set_file(self, file, file_content):
-        if not isinstance(file, Gio.File):
-            raise LinterError(
-                f"file should be an instance of Gio.File, got {file.__class__}"
-            )
-        self.file = file
-        self.file_content = file_content
-
     @staticmethod
     def _diagnostic(
         file, start_line, start_col, end_line, end_col,
@@ -99,11 +87,19 @@ class AbstractLinterAdapter(ABC):
         diagnostic_.add_range(range_)
         return diagnostic_
 
-    def find_end_col(self, line, start):
+    def set_file(self, file, file_content):
+        if not isinstance(file, Gio.File):
+            raise LinterError(
+                f"file should be an instance of Gio.File, got {file.__class__}"
+            )
+        self.file = file
+        self.file_content = file_content
+
+    def find_end_col(self, line, start, eol=False):
         if self.file_content:
             _line = self.file_content.splitlines()[line]
-            end = _line.find(" ", start)
-            return len(_line) - 1 if end == -1 else end
+            end = -1 if eol else _line.find(" ", start)
+            return len(_line) if end == -1 else end
         return start
 
     @abstractmethod
@@ -187,14 +183,16 @@ class Flake8Adapter(AbstractLinterAdapter):
             elmnts = _warn.split("|")
             if len(elmnts) < 4:
                 continue
+            _id = elmnts[2]
+            _key = _id.strip("0123456789")
+            eol = _key == "I"  # for isort plugin
             end_line = start_line = max(int(elmnts[0]) - 1, 0)
             start_col = max(int(elmnts[1]) - 1, 0)
-            end_col = self.find_end_col(start_line, start_col)
+            end_col = self.find_end_col(start_line, start_col, eol)
             symbol = ""
-            _id = elmnts[2]
             message = elmnts[3]
             severity = Flake8Adapter.SEVERITY.get(
-                _id.strip("0123456789"),
+                _key,
                 Flake8Adapter.SEVERITY['information']
             )
 
