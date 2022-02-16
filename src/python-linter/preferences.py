@@ -27,8 +27,6 @@ from linters import get_linters
 _ = Ide.gettext
 
 
-# FIXME: meson.build:glib-compile-schemas need
-#        to handle flatpack install
 class PythonLinterPreferencesAddin(GObject.Object, Ide.PreferencesAddin):
     """PythonLinterPreferencesAddin."""
 

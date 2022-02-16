@@ -1,0 +1,11 @@
+option('flatpak',
+	type : 'boolean',
+	value : false,
+	description : 'Install builder-plugins for a flatpak version'
+)
+option('plugins',
+	type : 'array',
+	choices : ['python-517-build', 'python-linter'],
+	value : ['python-517-build', 'python-linter'],
+	description : 'A comma separated list of plugins to install, default to all'
+)
