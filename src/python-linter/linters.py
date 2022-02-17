@@ -145,6 +145,7 @@ class Flake8Adapter(AbstractLinterAdapter):
         "F522",
         "F523",
         "F811",
+        "F841",
     ]
 
     linter = "flake8"
