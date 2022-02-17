@@ -7,7 +7,7 @@ plugindir = 'python-linter'
 # sources files
 py_src = ['python_linter_plugin.py',
 	  'linters.py',
-	  'preferences.py',
+	  'linters_preferences.py',
 	  'preferences_entry.py',
 	  'preferences_entry.ui']
 

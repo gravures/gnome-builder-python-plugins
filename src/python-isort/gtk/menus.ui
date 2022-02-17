@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <menu id="ide-source-view-popup-menu">
-    <section id="ide-source-view-popup-menu-format-section">
-      <attribute name="before">ide-source-view-popup-menu-clipboard-section</attribute>
+    <section id="ide-source-view-popup-menu-spellcheck-section">
       <item>
         <attribute name="id">python-isort</attribute>
         <attribute name="label" translatable="yes">_Sort import statements</attribute>
