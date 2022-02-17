@@ -1,0 +1,21 @@
+<schemalist>
+  <schema id="org.gnome.builder.plugins.python-isort"
+          path="/org/gnome/builder/plugins/python-isort/"
+          gettext-domain="gnome-builder">
+    <key name="black-support" type="b">
+      <default>true</default>
+      <summary>Enable Black compatibility</summary>
+      <description>Enable isort profile compatibility with python Black when formatting your code.</description>
+    </key>
+    <key name="pyversion-auto" type="b">
+      <default>true</default>
+      <summary>Enable auto python version discovery</summary>
+      <description>Format your code accordingly to the version of the interpreter used to run isort</description>
+    </key>
+    <key name="virtual-env" type="b">
+      <default>false</default>
+      <summary>Enable isort to use VIRTUAL_ENV project variable</summary>
+      <description>If you have set a VIRTUAL_ENV environment variable in your project configuration, ask isort to use it for determining whether a package is third-party.</description>
+    </key>
+  </schema>
+</schemalist>

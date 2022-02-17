@@ -64,7 +64,7 @@ class PythonLinterPreferencesAddin(GObject.Object, Ide.PreferencesAddin):
 
         prefs.add_group(
             "code-insight", "python-linter-group",
-            "Python Linter", 3000,
+            "Python Linter", 10000,
         )
 
         prefs.add_list_group(
@@ -72,7 +72,7 @@ class PythonLinterPreferencesAddin(GObject.Object, Ide.PreferencesAddin):
             "radio-group",
             _("Python linter selection (Python-Linter plugin) :"),
             Gtk.SelectionMode.NONE,
-            3200,
+            10100,
         )
 
         linters = get_linters()

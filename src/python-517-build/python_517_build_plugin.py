@@ -20,23 +20,18 @@
 #
 # pylint: disable=R0201,C0116,W0613,W0511,R0913
 #
-import sys
 import os
-from pathlib import Path
+import sys
 import venv
+from pathlib import Path
 
+import gi  # noqa
 import tomli
-from packaging.utils import parse_wheel_filename
-from packaging.utils import parse_sdist_filename
-from packaging.version import Version
-import gi
-
-from gi.repository import Gio, GLib, GObject
-from gi.repository import Ide
-
 from backends import BuildType, PypaBuildBackend
+from gi.repository import Gio, GLib, GObject, Ide
+from packaging.utils import parse_sdist_filename, parse_wheel_filename
+from packaging.version import Version
 from stage import Python517BuildStage
-
 
 _ = Ide.gettext
 

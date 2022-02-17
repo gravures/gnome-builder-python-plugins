@@ -30,7 +30,7 @@ from gi.repository import Ide
 
 import linters
 from linters import LinterError, AbstractLinterAdapter
-from preferences import PythonLinterPreferencesAddin  # noqa
+from linters_preferences import PythonLinterPreferencesAddin  # noqa
 
 _ = Ide.gettext
 

@@ -21,6 +21,8 @@
 import gi  # noqa
 from gi.repository import Gio, GLib, GObject, Ide
 
+from isort_preferences import PythonIsortPreferencesAddin  # noqa
+
 VERSION_HOOK = """import @MODULE@
 
 print(@MODULE@.__version__)
@@ -42,7 +44,7 @@ class ISortPageAddin(Ide.Object, Ide.EditorPageAddin):
     # will be reached.
     # So this seems to be the only way to safely initialize
     # some attributes before any call to the instance methods.
-    def do_get_property(self, prop):
+    def do_get_property(self, prop):  # noqa
         if prop.name == 'version':
             if self.__version is None:
                 ret = self.__class__.__get_version()
@@ -131,44 +133,64 @@ class ISortPageAddin(Ide.Object, Ide.EditorPageAddin):
         )
         launcher.set_cwd(srcdir)
 
+        #
+        config_manager = Ide.ConfigManager.from_context(context)
+        config = config_manager.get_current()
+        virtual_env = config.getenv("VIRTUAL_ENV")
+
         # do the thing
         file = self.page.get_file()
         start, end = buffer.get_bounds()
         utf8_code = buffer.get_text(start, end, True)
-        sorted_code = self._get_sorted_code(launcher, file, utf8_code)
+        sorted_code = self._get_sorted_code(
+            launcher, file, utf8_code, virtual_env
+        )
         if sorted_code is not None:
-            buffer.set_text(sorted_code, len(sorted_code) + 1)
+            buffer.set_text(sorted_code, -1)
 
         # unblock user interaction
         buffer.end_user_action()
         completion.unblock_interactive()
 
     def _get_sorted_code(
-        self, launcher: Ide.SubprocessLauncher, file: Gio.File, buffer: str
+        self, launcher: Ide.SubprocessLauncher, file: Gio.File,
+        buffer: str, virtual_env: str
     ):
         file_name = file.get_path()
         isort = ISortPageAddin.get_cmd_name()
 
-        gsetttings = Gio.Settings.new_with_path(
+        gsettings = Gio.Settings.new_with_path(
             "org.gnome.builder.editor.language",
             "/org/gnome/builder/editor/language/python3/"
         )
-        max_line_length = str(gsetttings.get_int("right-margin-position"))
-        indent_size = str(gsetttings.get_int("tab-width"))
+        max_line_length = str(gsettings.get_int("right-margin-position"))
+        indent_size = str(gsettings.get_int("tab-width"))
 
-        try:
-            launcher.push_args(
-                ['python',
-                 '-m', isort,
-                 '--indent', indent_size,
-                 '--line-length', max_line_length,
-                 # --virtual-env  # TODO
-                 '--py', 'auto',  # FIXME
-                 # TODO: black compat
-                 '--stdout',
+        gsettings = Gio.Settings(
+            schema="org.gnome.builder.plugins.python-isort"
+        )
+        py_auto = gsettings.get_boolean("pyversion-auto")
+        black = gsettings.get_boolean("black-support")
+        use_venv = gsettings.get_boolean("virtual-env")
+
+        args = ['python',
+                '-m', isort,
+                '--indent', indent_size,
+                '--line-length', max_line_length]
+
+        if py_auto:
+            args += ['--py', 'auto']
+        if black:
+            args += ['--profile', 'black']
+        if use_venv and virtual_env:
+            args += ['--virtual-env', virtual_env]
+
+        args += ['--stdout',
                  '--filename', file_name,
                  '-']
-            )
+
+        try:
+            launcher.push_args(args)
             subprocess = launcher.spawn()
             success, stdout, stderr = subprocess.communicate_utf8(buffer, None)
             if not success:
