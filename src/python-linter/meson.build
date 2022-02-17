@@ -1,11 +1,10 @@
-conf = configuration_data()
-conf.set('PACKAGE_ABI', abi_version)
-
 # Requirements
 requires += ['pylint=2.12']
 
+# sub directory installation
 plugindir = 'python-linter'
 
+# sources files
 py_src = ['python_linter_plugin.py',
 	  'linters.py',
 	  'preferences.py',
@@ -15,7 +14,7 @@ py_src = ['python_linter_plugin.py',
 configure_file(
 	input: files('python_linter.plugin.in'),
 	output: 'python_linter.plugin',
-	configuration: conf,
+	configuration: abi_conf,
 	install: true,
 	install_dir: join_paths(builder_plugindir, plugindir),
 )
