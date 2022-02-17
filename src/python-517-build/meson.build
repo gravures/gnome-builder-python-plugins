@@ -1,6 +1,3 @@
-conf = configuration_data()
-conf.set('PACKAGE_ABI', abi_version)
-
 # Requirements
 requires += ['setuptools=52.0',
              'build=0.1.0',
@@ -8,16 +5,18 @@ requires += ['setuptools=52.0',
              'tomli=1.2',
              'packaging=20.9']
 
+# sources files
 py_src = ['python_517_build_plugin.py',
 	 'backends.py',
 	 'stage.py']
 
+# sub directory installation
 plugindir = 'python-517-build'
 
 configure_file(
 	input: files('python_517_build.plugin.in'),
 	output: 'python_517_build.plugin',
-	configuration: conf,
+	configuration: abi_conf,
 	install: true,
 	install_dir: join_paths(builder_plugindir, plugindir),
 )

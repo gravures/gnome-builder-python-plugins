@@ -1,4 +1,4 @@
-project('gnome-builder-pep517-plugin',
+project('gnome-builder-python-plugins',
          version: '0.1.0',
          license: 'GPL-3.0-or-later',
     	 meson_version: '>= 0.55.0',
@@ -6,6 +6,7 @@ project('gnome-builder-pep517-plugin',
 
 # plugins to install
 plugins_list = get_option('plugins')
+
 
 # Requirements python modules that are required by our plugins
 python_requires = {}
@@ -57,6 +58,7 @@ endif
 
 
 # include
+gnome = import('gnome')
 message('Will configure those plugin(s): @0@'.format(', '.join(plugins_list)))
 subdir('src')
 

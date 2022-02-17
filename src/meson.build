@@ -2,6 +2,10 @@
 # its own dependency
 requires = []
 
+# *.plugin ABI confguration
+abi_conf = configuration_data()
+abi_conf.set('PACKAGE_ABI', abi_version)
+
 # include
 foreach plugin : plugins_list
 	subdir(plugin)

@@ -1,0 +1,10 @@
+[Plugin]
+Name=Python Isort
+Description=Sort your python import statements with isort
+Author=Gilles Coissac
+Loader=python3
+Hidden=false
+Module=python_isort_plugin
+Depends=editor
+X-Has-Resources=true
+X-Builder-ABI=@PACKAGE_ABI@

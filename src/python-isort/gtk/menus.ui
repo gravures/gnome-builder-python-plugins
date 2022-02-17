@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <menu id="ide-source-view-popup-menu">
+    <section id="ide-source-view-popup-menu-format-section">
+      <attribute name="before">ide-source-view-popup-menu-clipboard-section</attribute>
+      <item>
+        <attribute name="id">python-isort</attribute>
+        <attribute name="label" translatable="yes">_Sort import statements</attribute>
+        <attribute name="action">python-isort.sort-import</attribute>
+        <attribute name="accel">&lt;control&gt;i</attribute>
+      </item>
+    </section>
+  </menu>
+</interface>
