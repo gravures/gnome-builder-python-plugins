@@ -1,11 +1,11 @@
 [Plugin]
-Name=python-linter
-Description=Provides integration with pylint
+Name=Python Linter
+Description=Provides integration with pylint and flake8 python linters
 Author=Gilles Coissac
 Loader=python3
 Hidden=false
 Module=python_linter_plugin
-Depends=editor;buildui;
+Depends=editor;
 X-Diagnostic-Provider-Languages-Priority=50
 X-Diagnostic-Provider-Languages=python3
 X-Builder-ABI=@PACKAGE_ABI@
