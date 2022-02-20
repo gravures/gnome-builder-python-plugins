@@ -49,10 +49,12 @@ prefix = get_option('prefix')
 datadir = join_paths(prefix, get_option('datadir'))
 builder_plugindir = join_paths(datadir, 'gnome-builder/plugins')
 if get_option('flatpak')
-	flatpak = join_paths(datadir, 'flatpak/app/org.gnome.Builder/current/active/files/share/')
-	schemas_dir = join_paths(flatpak, 'glib-2.0/schemas')
+	flatpak = join_paths(datadir, 'flatpak/app/org.gnome.Builder/current/active/files/')
+	scriptdir = join_paths(flatpak, get_option('bindir'))
+	schemas_dir = join_paths(flatpak, get_option('datadir'), 'glib-2.0/schemas')
 	message('Will install gnome-builder preferences for flatpak')
 else
+	scriptdir = join_paths(prefix, get_option('bindir'))
 	schemas_dir = join_paths(datadir, 'glib-2.0/schemas')
 endif
 
