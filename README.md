@@ -1,7 +1,5 @@
 # gnome-builder python plugins
 
-
-
 ## About
 
 A set of **gnome-builder** extensions for Python development.
@@ -10,8 +8,6 @@ A set of **gnome-builder** extensions for Python development.
 
 - gnome-builder >= 3.32
 - Python >=3.6
-
-
 
 ## Installing
 
@@ -39,8 +35,6 @@ $ meson compile -C build
 $ meson install -C build
 ```
 
-
-
 ## Install only specific plugins
 
 You can specify with the -Dplugins configure option a list of plugin(s) to install:
@@ -48,8 +42,6 @@ You can specify with the -Dplugins configure option a list of plugin(s) to insta
 ```
 $ meson build --prefix=~/.local -Dplugins=python-linter,python-517-build
 ```
-
-
 
 ## Flatpak specific installation
 
@@ -63,8 +55,6 @@ $ meson install -C build
 
 Note: this will only install certains files to the flatpak container (because thoses files can't be share with user space)
 
-
-
 To show Python installed packages in your gnome-builder flatpak's distribution:
 
 ```
@@ -76,8 +66,6 @@ To install or upgrade a specific Python requirement to your gnome-builder flatpa
 ```
 pip install packaging>=20.9 --upgrade -t ~/.local/share/flatpak/app/org.gnome.Builder/current/active/files/lib/python3.9/site-packages
 ```
-
-
 
 ## python-517 plugin
 
@@ -91,8 +79,6 @@ Currently the only supported build backend is the **Pypa** [build](https://pypa-
 - pip >= 20.3
 - packaging >= 20.9
 - tomli >= 1.2
-
-
 
 ## python-linter plugin
 
@@ -108,6 +94,22 @@ None of those linter requirements are mandatory, the plugin will check at runtim
 ```
 $ pip install flake8 --user
 ```
+
+
+
+## python-isort plugin
+
+```
+[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
+```
+
+Add an entry in the source view menu to sort import statements with [isort](https://pycqa.github.io/isort/index.html).
+
+##### plugin requirements:
+
+- isort >= 5.0
+
+For flatpack you don't have to install isort in the gnome-builder container, instead just install as usual.
 
 
 

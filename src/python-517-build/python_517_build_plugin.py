@@ -26,9 +26,10 @@ import venv
 from pathlib import Path
 
 import gi  # noqa
+from gi.repository import Gio, GLib, GObject, Ide
+
 import tomli
 from backends import BuildType, PypaBuildBackend
-from gi.repository import Gio, GLib, GObject, Ide
 from packaging.utils import parse_sdist_filename, parse_wheel_filename
 from packaging.version import Version
 from stage import Python517BuildStage
@@ -272,7 +273,8 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
         This method looks for a variable 'VIRTUAL_ENV' in global environment
         or one defined in the configuration ui. If the path is a valid
         directory the virtualenv will be updated with pip, otherwise env will
-        be created. If no 'VIRTUAL_ENV' variable was found None will be returned.
+        be created. If no 'VIRTUAL_ENV' variable was found None
+        will be returned.
 
         Returns(pathlib.Path): A Path to a virtualenv or None.
         """
@@ -541,5 +543,3 @@ class Python517BuildTargetProvider(Ide.Object, Ide.BuildTargetProvider):
             return result.targets
         return None
 
-
-# EOF
