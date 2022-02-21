@@ -5,7 +5,8 @@ requires += []
 plugindir = 'python-symbols'
 
 # sources files
-py_src = ['python_symbols_plugin.py']
+py_src = ['python_symbols_plugin.py',
+	  'symbols_preferences.py']
 
 configure_file(
 	input: files('python_symbols.plugin.in'),
@@ -31,8 +32,8 @@ install_data(
    	install_mode: 'rwxr-xr-x'
 )
 
-# install_data(
-# 	'org.gnome.builder.plugins.python-symbols.gschema.xml',
-#   	install_dir: schemas_dir
-# )
+install_data(
+	'org.gnome.builder.plugins.python-symbols.gschema.xml',
+  	install_dir: schemas_dir
+)
 

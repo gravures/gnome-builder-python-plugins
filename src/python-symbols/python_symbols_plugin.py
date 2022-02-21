@@ -31,6 +31,8 @@ from typing import Any, List, Optional
 import gi  # noqa
 from gi.repository import Gio, GLib, GObject, Ide
 
+from symbols_preferences import PythonSymbolsPreferencesAddin  # noqa
+
 SYMBOL_PARAM_FLAGS = flags = (
     GObject.ParamFlags.CONSTRUCT_ONLY | GObject.ParamFlags.READWRITE
 )
