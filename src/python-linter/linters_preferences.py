@@ -21,8 +21,8 @@
 import gi  # noqa
 from gi.repository import GObject, Gtk, Ide
 
-from preferences_entry import PreferencesEntry  # noqa
 from linters import get_linters
+from preferences_entry import PreferencesEntry  # noqa
 
 _ = Ide.gettext
 
@@ -62,13 +62,14 @@ class PythonLinterPreferencesAddin(GObject.Object, Ide.PreferencesAddin):
             # with sort priority
             500)
 
-        prefs.add_group(
-            "code-insight", "python-linter-group",
-            "Python Linter", 10000,
+        prefs.add_page(
+            "python-plugins",
+            _("Python Plugins Preferences"),
+            10000,
         )
 
         prefs.add_list_group(
-            "code-insight",
+            "python-plugins",
             "radio-group",
             _("Python linter selection (Python-Linter plugin) :"),
             Gtk.SelectionMode.NONE,
@@ -82,7 +83,7 @@ class PythonLinterPreferencesAddin(GObject.Object, Ide.PreferencesAddin):
             version = version if version else "(unavailable)"
             name = linter.get_name()
             self.radios.append(prefs.add_radio(
-                "code-insight",
+                "python-plugins",
                 "radio-group",
                 "org.gnome.builder.plugins.python-linter",
                 "linter-name",

@@ -33,55 +33,61 @@ class PythonIsortPreferencesAddin(GObject.Object, Ide.PreferencesAddin):
         """
         self._ids = []
 
+        prefs.add_page(
+            "python-plugins",
+            _("Python Plugins Preferences"),
+            10000,
+        )
+
         prefs.add_list_group(
-            "code-insight",
+            "python-plugins",
             "python-isort",
             _("Python Isort:"),
             Gtk.SelectionMode.NONE,
-            11000,
+            13000,
         )
         self._ids.append(
             prefs.add_switch(
-                "code-insight",
+                "python-plugins",
                 "python-isort",
                 "org.gnome.builder.plugins.python-isort",
                 "black-support",
                 None,
                 "true",
-                "Enable Black compatibility",
-                ("Enable isort profile compatibility with python Black "
-                 "when formatting your code."),
+                _("Enable Black compatibility"),
+                _("Enable isort profile compatibility with python Black "
+                  "when formatting your code."),
                 _("Black isort python"),
                 10
             )
         )
         self._ids.append(
             prefs.add_switch(
-                "code-insight",
+                "python-plugins",
                 "python-isort",
                 "org.gnome.builder.plugins.python-isort",
                 "pyversion-auto",
                 None,
                 "true",
-                "Enable auto python version discovery",
-                ("Format your code accordingly to the version of the "
-                 "interpreter used to run isort."),
+                _("Enable auto python version discovery"),
+                _("Format your code accordingly to the version of the "
+                  "interpreter used to run isort."),
                 _("isort python"),
                 20
             )
         )
         self._ids.append(
             prefs.add_switch(
-                "code-insight",
+                "python-plugins",
                 "python-isort",
                 "org.gnome.builder.plugins.python-isort",
                 "virtual-env",
                 None,
                 "false",
-                "Enable isort to use VIRTUAL_ENV project variable",
-                ("If you have set a VIRTUAL_ENV environment variable in your "
-                 "project configuration, ask isort to use it for determining "
-                 "whether a package is third-party."),
+                _("Enable isort to use VIRTUAL_ENV project variable"),
+                _("If you have set a VIRTUAL_ENV environment variable in your "
+                  "project configuration, ask isort to use it for determining "
+                  "whether a package is third-party."),
                 _("isort python virtual_env"),
                 30
             )
