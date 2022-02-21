@@ -26,7 +26,7 @@ import threading
 from collections import namedtuple
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import gi  # noqa
 from gi.repository import Gio, GLib, GObject, Ide
@@ -39,16 +39,20 @@ SYMBOL_PARAM_FLAGS = flags = (
 
 
 log = logging.getLogger(__name__)
+log.setLevel(Ide.log_get_verbosity() * 10)
 handler = logging.StreamHandler()
-formatter = logging.Formatter("%(levelname)-8s: %(name)-12s -> %(message)s")
+formatter = logging.Formatter(
+    '%(asctime)-13s %(name)+49s %(levelname)+8s: %(message)s',
+    '%H:%M:%S.%04d'
+)
 handler.setFormatter(formatter)
 log.addHandler(handler)
 
 
-def warn(func):
-    """decorator to log functon call."""
+def debug(func):
+    """decorator to log function call."""
     def _func(*args, **kwargs):
-        log.warn(f"{func.__qualname__}()")
+        log.debug(f"{func.__qualname__}()")
         func(*args, **kwargs)
     return _func
 
@@ -117,6 +121,9 @@ class PythonSymbolNode(Ide.SymbolNode):
 Desc = namedtuple("Desc", ["kind", "name"])
 
 
+EXPORT_VARIABLE_SCOPE = [Ide.SymbolKind.PACKAGE, Ide.SymbolKind.CLASS]
+
+
 def _get_func_def(ast_node, parent_symbol_node):
     decorator_list = []
     for _d in ast_node.decorator_list:
@@ -137,7 +144,7 @@ def _get_func_def(ast_node, parent_symbol_node):
 def _get_assign_def(ast_node, parent_symbol_node):
     if (
         parent_symbol_node.props.kind in
-        [Ide.SymbolKind.PACKAGE, Ide.SymbolKind.CLASS]
+        EXPORT_VARIABLE_SCOPE
     ):
         return Ide.SymbolKind.VARIABLE
     return None
@@ -167,6 +174,9 @@ class PythonSymbolTree(GObject.Object, Ide.SymbolTree):
             kind=lambda _n, _p: Ide.SymbolKind.CLASS,
             name=lambda _n: _n.name,
         ),
+    }
+
+    AST_IMPT_STMT = {
         ast.Import: Desc(
             kind=lambda _n, _p: Ide.SymbolKind.PACKAGE,
             name=lambda _n: ", ".join([_a.name for _a in _n.names]),
@@ -175,27 +185,40 @@ class PythonSymbolTree(GObject.Object, Ide.SymbolTree):
             kind=lambda _n, _p: Ide.SymbolKind.PACKAGE,
             name=lambda _n: ", ".join([_a.name for _a in _n.names]),
         ),
+    }
+
+    AST_VAR_STMT = {
         ast.Assign: Desc(
             kind=_get_assign_def,
             name=_get_assign_name,
-        )
+        ),
     }
 
-    @warn
+    @debug
     def __init__(self, ast_module: ast.Module, file: Gio.File):
-        super().__init__()
-        self.root_node = self._parse_ast_module(ast_module, file)
-
-    @classmethod
-    def _parse_ast_module(
-        cls, ast_module: ast.Module, file: Gio.File
-    ) -> PythonSymbolNode:
         """Visit the ast.Module ast_module recursivly
         and return the tree's root as a PythonSymbolNode
         of Kind Ide.SymbolKind.PACKAGE.
         """
-        # log.warn(cls._dump_ast_tree(ast_module))
-        root = PythonSymbolNode(
+        super().__init__()
+        gsettings = Gio.Settings(
+            schema="org.gnome.builder.plugins.python-symbols"
+        )
+
+        global EXPORT_VARIABLE_SCOPE
+        EXPORT_VARIABLE_SCOPE.clear()
+        stmts = dict(self.AST_STMT)
+
+        if gsettings.get_boolean("export-imports"):
+            stmts |= self.AST_IMPT_STMT
+        if gsettings.get_boolean("export-modules-variables"):
+            stmts |= self.AST_VAR_STMT
+            EXPORT_VARIABLE_SCOPE.append(Ide.SymbolKind.PACKAGE)
+        if gsettings.get_boolean("export-class-variables"):
+            stmts |= self.AST_VAR_STMT
+            EXPORT_VARIABLE_SCOPE.append(Ide.SymbolKind.CLASS)
+
+        self.root_node = PythonSymbolNode(
             line=0, col=0,
             name=Path(file.get_path()).name,
             kind=Ide.SymbolKind.PACKAGE,
@@ -203,31 +226,14 @@ class PythonSymbolTree(GObject.Object, Ide.SymbolTree):
         )
         ast.fix_missing_locations(ast_module)
         for node in ast.iter_child_nodes(ast_module):
-            cls._visit_ast_node(node, root, file)
-        return root
-
-    @classmethod
-    def _dump_ast_tree(cls, ast_tree):
-        dump = ""
-        for node in ast.walk(ast_tree):
-            _type = type(node)
-            expr = "expr" if issubclass(_type, ast.expr) else ""
-            stmt = "stmt" if issubclass(_type, ast.stmt) else ""
-            line = node.lineno if hasattr(node, "lineno") else ""
-            name = node.name if hasattr(node, "name") else ""
-            dump += f"{type(node)}({expr},{stmt})"
-            if name:
-                dump += f" name:{name}"
-            if line:
-                dump += f" line:{line}"
-            dump += "\n"
-        return dump
+            self._visit_ast_node(node, self.root_node, file, stmts)
 
     @classmethod
     def _visit_ast_node(
         cls, node: ast.AST,
         parent: PythonSymbolNode,
-        file: Gio.File
+        file: Gio.File,
+        statements: Dict,
     ) -> None:
         """Visit the AST 'node'.
 
@@ -236,7 +242,7 @@ class PythonSymbolTree(GObject.Object, Ide.SymbolTree):
         of SymbolNode. Call visit_ast_node recursivly on children.
         """
         symbole_node = None
-        desc = cls.AST_STMT.get(type(node), None)
+        desc = statements.get(type(node), None)
         if desc:
             kind = desc.kind(node, parent)
             if kind:
@@ -251,7 +257,24 @@ class PythonSymbolTree(GObject.Object, Ide.SymbolTree):
                 parent.append(symbole_node)
                 #
                 for node in ast.iter_child_nodes(node):
-                    cls._visit_ast_node(node, symbole_node, file)
+                    cls._visit_ast_node(node, symbole_node, file, statements)
+
+    @staticmethod
+    def _dump_ast_tree(ast_tree):
+        dump = ""
+        for node in ast.walk(ast_tree):
+            _type = type(node)
+            expr = "expr" if issubclass(_type, ast.expr) else ""
+            stmt = "stmt" if issubclass(_type, ast.stmt) else ""
+            line = node.lineno if hasattr(node, "lineno") else ""
+            name = node.name if hasattr(node, "name") else ""
+            dump += f"{type(node)}({expr},{stmt})"
+            if name:
+                dump += f" name:{name}"
+            if line:
+                dump += f" line:{line}"
+            dump += "\n"
+        return dump
 
     def do_get_n_children(self, node: Ide.SymbolNode) -> int:
         """Get the number of children of @node.
@@ -286,7 +309,7 @@ class PythonSymbolTree(GObject.Object, Ide.SymbolTree):
 class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
     """PythonSymbolProvIder."""
 
-    @warn
+    @debug
     def do_lookup_symbol_async(
         self, location: Ide.Location,
         cancellable: Optional[Gio.Cancellable],
@@ -311,7 +334,7 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
         """
         result.propagate_boolean()
 
-    @warn
+    @debug
     def do_get_symbol_tree_async(
         self, file: Gio.File,
         buffer: Optional[bytes],
@@ -346,7 +369,7 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
             return result.symbol_tree
         return None
 
-    @warn
+    @debug
     def _inspect_module(
         self, task: Gio.Task,
         launcher: Ide.SubprocessLauncher,
@@ -358,7 +381,7 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
             subprocess = launcher.spawn()
             success, stdout, stderr = subprocess.communicate_utf8(None, None)
             if not success:
-                log.warn('Failed to run sources_inspect.py')
+                log.debug('Failed to run sources_inspect.py')
                 task.return_error(
                     GLib.Error('Failed to run sources_inspect.py')
                 )
@@ -371,38 +394,38 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
             os.unlink(tmp_path)
 
             if not isinstance(ast_tree, ast.Module):
-                log.warn("Failed to unpickle to an ast.Module")
+                log.debug("Failed to unpickle to an ast.Module")
                 task.return_error(
                     GLib.Error("Failed to unpickle to an ast.Module")
                 )
             task.symbol_tree = PythonSymbolTree(ast_tree, file)
-            # log.warn(f"{task.symbol_tree.dump()}")
+            # log.debug(f"{task.symbol_tree.dump()}")
         except GLib.Error as err:
-            log.warn(f"GLib.Error: {err}")
+            log.debug(f"GLib.Error: {err}")
             task.return_error(err)
         except OSError as err:
-            log.warn(f"Failed to open stream: {err}")
+            log.debug(f"Failed to open stream: {err}")
             task.return_error(GLib.Error(f"Failed to open stream: {err}"))
         except pickle.UnpicklingError as err:
-            log.warn(f"Failed to unpickle stream: {err}")
+            log.debug(f"Failed to unpickle stream: {err}")
             task.return_error(GLib.Error(f"Failed to unpickle stream: {err}"))
         except (IndexError, KeyError) as err:
-            log.warn(f"Failed to extract information from ast: {err}")
+            log.debug(f"Failed to extract information from ast: {err}")
             task.return_error(
                 GLib.Error(f"Failed to extract information from ast: {err}")
             )
         else:
             task.return_boolean(True)
 
-    @warn
+    @debug
     def do_load(self) -> None:
         pass
 
-    @warn
+    @debug
     def do_unload(self) -> None:
         pass
 
-    @warn
+    @debug
     def do_find_references_async(
         self,
         location: Ide.Location,
@@ -422,7 +445,7 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
         """Completes an asynchronous request find_references_async()."""
         result.propagate_boolean()
 
-    @warn
+    @debug
     def do_find_nearest_scope_async(
         self, location: Ide.Location,
         cancellable: Optional[Gio.Cancellable],
@@ -489,7 +512,7 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
 #         return nodes
 
 #     @staticmethod
-#     @warn
+#     @debug
 #     def _index_file_cb(
 #         source_object,
 #         res: Gio.AsyncResult,
@@ -497,7 +520,7 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
 #         """A Gio.AsyncReadyCallback"""
 #         self = source_object
 #         task = res.root_task
-#         log.warn(f"{res.symbol_tree.get_root()}")
+#         log.debug(f"{res.symbol_tree.get_root()}")
 #         root_node = res.symbol_tree.get_root()
 #         builder = Ide.CodeIndexEntryBuilder()
 #         entries = []
@@ -515,7 +538,7 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
 #         task.return_boolean(True)
 #         self.active = False
 
-#     @warn
+#     @debug
 #     def do_index_file_async(
 #         self, file, build_flags, cancellable, callback, data=None
 #     ):
@@ -537,7 +560,7 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
 #             return result.entries
 #         return None
 
-#     @warn
+#     @debug
 #     def do_generate_key_async(
 #         self, location, flags, cancellable, callback, user_data=None
 #     ):

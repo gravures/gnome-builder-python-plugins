@@ -1,0 +1,21 @@
+<schemalist>
+  <schema id="org.gnome.builder.plugins.python-symbols"
+          path="/org/gnome/builder/plugins/python-symbols/"
+          gettext-domain="gnome-builder">
+    <key name="export-imports" type="b">
+      <default>true</default>
+      <summary>Export imports as symbols</summary>
+      <description>Make imported module visible in the symbol tree view.</description>
+    </key>
+    <key name="export-modules-variables" type="b">
+      <default>true</default>
+      <summary>Export module's variables as symbol</summary>
+      <description>Make variables declared at module level visible in the symbol tree view.</description>
+    </key>
+    <key name="export-class-variables" type="b">
+      <default>true</default>
+      <summary>Export class's variables as symbol</summary>
+      <description>Make variables declared at class level visible in the symbol tree view.</description>
+    </key>
+  </schema>
+</schemalist>
