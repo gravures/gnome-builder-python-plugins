@@ -20,10 +20,10 @@
 import shutil
 from pathlib import Path
 
-import gi
+import gi  # noqa
+from gi.repository import GLib, Ide
 
-from gi.repository import Gio, GLib, GObject
-from gi.repository import Ide
+_ = Ide.gettext
 
 
 class Python517BuildStage(Ide.PipelineStage):
@@ -49,17 +49,20 @@ class Python517BuildStage(Ide.PipelineStage):
         build_system = Ide.BuildSystem.from_context(context)
         _venv = None
         if not self.backend.has_isolation():
-           _venv = build_system.get_virtual_env()
+            _venv = build_system.get_virtual_env()
 
         for i, arg in enumerate(self.backend.get_build_cmd()):
-            if i==0 and _venv:
+            if i == 0 and _venv:
                 arg = f"{_venv}/bin/{arg}"
             launcher.push_argv(arg)
 
         task.connect("notify::completed", self._build_completed_cb)
         self.set_active(True)
         pipeline.attach_pty(launcher)
-        self.log(Ide.BuildLogStream.STDOUT, " ".join(self.backend.get_build_cmd()), -1)
+        self.log(
+            Ide.BuildLogStream.STDOUT, " ".join(self.backend.get_build_cmd()),
+            -1,
+        )
 
         # launch the process
         subprocess = launcher.spawn(cancellable)
@@ -122,7 +125,8 @@ class Python517BuildStage(Ide.PipelineStage):
             for file in files:
                 if file.is_file():
                     self.log(
-                        Ide.BuildLogStream.STDOUT, f"deleting {file.name}",-1,
+                        Ide.BuildLogStream.STDOUT, f"deleting {file.name}",
+                        -1,
                     )
                     file.unlink()
                 if file.is_dir():
