@@ -20,9 +20,10 @@
 #
 import ast
 import logging
+import os
 import pickle
 import threading
-import shutil
+from collections import namedtuple
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, List, Optional
@@ -111,7 +112,72 @@ class PythonSymbolNode(Ide.SymbolNode):
         return dump
 
 
+Desc = namedtuple("Desc", ["kind", "name"])
+
+
+def _get_func_def(ast_node, parent_symbol_node):
+    decorator_list = []
+    for _d in ast_node.decorator_list:
+        if isinstance(_d, ast.Name):
+            decorator_list.append(_d.id)
+        elif isinstance(_d, ast.Call):
+            decorator_list.append(_d.func.id)
+    if parent_symbol_node.props.kind == Ide.SymbolKind.CLASS:
+        if ast_node.name == "__new__":
+            return Ide.SymbolKind.CONSTRUCTOR
+        elif "property" in decorator_list:
+            return Ide.SymbolKind.PROPERTY
+        else:
+            return Ide.SymbolKind.METHOD
+    return Ide.SymbolKind.FUNCTION
+
+
+def _get_assign_def(ast_node, parent_symbol_node):
+    if (
+        parent_symbol_node.props.kind in
+        [Ide.SymbolKind.PACKAGE, Ide.SymbolKind.CLASS]
+    ):
+        return Ide.SymbolKind.VARIABLE
+    return None
+
+
+def _get_assign_name(ast_node):
+    if isinstance(ast_node.targets[0], ast.Name):
+        return ast_node.targets[0].id
+    elif isinstance(ast_node.targets[0], ast.Tuple):
+        return ast_node.targets[0].elts[0].id
+    else:
+        return "UNDEFINED"
+
+
 class PythonSymbolTree(GObject.Object, Ide.SymbolTree):
+
+    AST_STMT = {
+        ast.FunctionDef: Desc(
+            kind=_get_func_def,
+            name=lambda _n: _n.name,
+        ),
+        ast.AsyncFunctionDef: Desc(
+            kind=_get_func_def,
+            name=lambda _n: _n.name,
+        ),
+        ast.ClassDef: Desc(
+            kind=lambda _n, _p: Ide.SymbolKind.CLASS,
+            name=lambda _n: _n.name,
+        ),
+        ast.Import: Desc(
+            kind=lambda _n, _p: Ide.SymbolKind.PACKAGE,
+            name=lambda _n: ", ".join([_a.name for _a in _n.names]),
+        ),
+        ast.ImportFrom: Desc(
+            kind=lambda _n, _p: Ide.SymbolKind.PACKAGE,
+            name=lambda _n: ", ".join([_a.name for _a in _n.names]),
+        ),
+        ast.Assign: Desc(
+            kind=_get_assign_def,
+            name=_get_assign_name,
+        )
+    }
 
     @warn
     def __init__(self, ast_module: ast.Module, file: Gio.File):
@@ -126,6 +192,7 @@ class PythonSymbolTree(GObject.Object, Ide.SymbolTree):
         and return the tree's root as a PythonSymbolNode
         of Kind Ide.SymbolKind.PACKAGE.
         """
+        # log.warn(cls._dump_ast_tree(ast_module))
         root = PythonSymbolNode(
             line=0, col=0,
             name=Path(file.get_path()).name,
@@ -136,6 +203,23 @@ class PythonSymbolTree(GObject.Object, Ide.SymbolTree):
         for node in ast.iter_child_nodes(ast_module):
             cls._visit_ast_node(node, root, file)
         return root
+
+    @classmethod
+    def _dump_ast_tree(cls, ast_tree):
+        dump = ""
+        for node in ast.walk(ast_tree):
+            _type = type(node)
+            expr = "expr" if issubclass(_type, ast.expr) else ""
+            stmt = "stmt" if issubclass(_type, ast.stmt) else ""
+            line = node.lineno if hasattr(node, "lineno") else ""
+            name = node.name if hasattr(node, "name") else ""
+            dump += f"{type(node)}({expr},{stmt})"
+            if name:
+                dump += f" name:{name}"
+            if line:
+                dump += f" line:{line}"
+            dump += "\n"
+        return dump
 
     @classmethod
     def _visit_ast_node(
@@ -150,30 +234,22 @@ class PythonSymbolTree(GObject.Object, Ide.SymbolTree):
         of SymbolNode. Call visit_ast_node recursivly on children.
         """
         symbole_node = None
-        if isinstance(node, ast.FunctionDef):
-            kind = (
-                Ide.SymbolKind.METHOD
-                if parent.props.kind == Ide.SymbolKind.CLASS
-                else Ide.SymbolKind.FUNCTION
-            )
-            symbole_node = PythonSymbolNode(
-                line=node.lineno - 1,
-                col=node.col_offset,
-                kind=kind,
-                name=node.name, file=file
-            )
-            parent.append(symbole_node)
-        elif isinstance(node, ast.ClassDef):
-            symbole_node = PythonSymbolNode(
-                line=node.lineno - 1,
-                col=node.col_offset,
-                kind=Ide.SymbolKind.CLASS,
-                name=node.name, file=file
-            )
-            parent.append(symbole_node)
-        if symbole_node is not None:
-            for node in ast.iter_child_nodes(node):
-                cls._visit_ast_node(node, symbole_node, file)
+        desc = cls.AST_STMT.get(type(node), None)
+        if desc:
+            kind = desc.kind(node, parent)
+            if kind:
+                name = desc.name(node)
+                symbole_node = PythonSymbolNode(
+                    line=node.lineno - 1,
+                    col=node.col_offset,
+                    kind=kind,
+                    name=name,
+                    file=file
+                )
+                parent.append(symbole_node)
+                #
+                for node in ast.iter_child_nodes(node):
+                    cls._visit_ast_node(node, symbole_node, file)
 
     def do_get_n_children(self, node: Ide.SymbolNode) -> int:
         """Get the number of children of @node.
@@ -265,7 +341,6 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
         to get the symbol tree for the requested file.
         """
         if result.propagate_boolean():
-            log.warn(result.symbol_tree.dump())
             return result.symbol_tree
         return None
 
@@ -291,6 +366,7 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
             with open(tmp_path, mode='rb') as _file:
                 data = _file.read()
             ast_tree = pickle.loads(data)
+            os.unlink(tmp_path)
 
             if not isinstance(ast_tree, ast.Module):
                 log.warn("Failed to unpickle to an ast.Module")
