@@ -4,6 +4,16 @@
 
 A set of **gnome-builder** extensions for Python development.
 
+* **python-517** (a pep-517 build system)
+
+* **python-linter** (integration of flake8 and pylint)
+
+* **python-isort** (sort import statements)
+
+* **python-symbol** (meaningfull symbol tree view)
+
+After installation a new page in the preferences panel will be available with sections for the different plugins.
+
 ##### global requirements:
 
 - gnome-builder >= 3.32
@@ -55,6 +65,8 @@ $ meson install -C build
 
 Note: this will only install certains files to the flatpak container (because thoses files can't be share with user space)
 
+You will need to install some python packages in the flatpak container, currently those packages will be *packaging* and *tomli* for the python-517 plugin.
+
 To show Python installed packages in your gnome-builder flatpak's distribution:
 
 ```
@@ -67,6 +79,8 @@ To install or upgrade a specific Python requirement to your gnome-builder flatpa
 pip install packaging>=20.9 --upgrade -t ~/.local/share/flatpak/app/org.gnome.Builder/current/active/files/lib/python3.9/site-packages
 ```
 
+Note: pip does not permit to uninstall package in a custom directory, if you want to remove thoses packages you should do it manually. 
+
 ## python-517 plugin
 
 Provide a modern python build system defined through the [PEP 517](https://www.python.org/dev/peps/pep-0517/#build-requirements) (a build-system independent format for source trees). This is also well known as the [pyproject.toml](https://pip.pypa.io/en/stable/reference/build-system/pyproject-toml/) interface.
@@ -77,8 +91,8 @@ Currently the only supported build backend is the **Pypa** [build](https://pypa-
 - setuptools >= 42.0
 - build >= 0.1.0
 - pip >= 20.3
-- packaging >= 20.9
-- tomli >= 1.2
+- *packaging* >= 20.9
+- *tomli* >= 1.2
 
 ## python-linter plugin
 
@@ -87,7 +101,7 @@ Provide integration with [PyLint](https://pylint.org/) and [Flake8](https://flak
 ##### plugin requirements:
 
 * pylint >= 2.12
-* flake8
+* *or* flake8
 
 None of those linter requirements are mandatory, the plugin will check at runtime witch linter is available. You can select the linter to use in the preferences window. You can even install a new linter when builder is running (you have to close and open again the preferences window to show the new linter). For flatpack you don't have to install any linter in the gnome-builder container, instead just install as usual:
 
@@ -95,13 +109,9 @@ None of those linter requirements are mandatory, the plugin will check at runtim
 $ pip install flake8 --user
 ```
 
-
-
 ## python-isort plugin
 
-```
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
-```
 
 Add an entry in the source view menu to sort import statements with [isort](https://pycqa.github.io/isort/index.html).
 
@@ -111,7 +121,9 @@ Add an entry in the source view menu to sort import statements with [isort](http
 
 For flatpack you don't have to install isort in the gnome-builder container, instead just install as usual.
 
+## python-symbols plugin
 
+Give to gnome-builder editor a meaningfull symbol code tree view.  Symbols shown in the list view can be adjusted in preferences panel (show imported modules, show variables at modules level or at class level).
 
 ## License
 
