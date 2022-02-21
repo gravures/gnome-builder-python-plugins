@@ -31,7 +31,7 @@ from gi.repository import Gio, GLib, GObject, Ide
 import tomli
 from backends import BuildType, PypaBuildBackend
 from packaging.utils import parse_sdist_filename, parse_wheel_filename
-from packaging.version import Version
+# from packaging.version import Version
 from stage import Python517BuildStage
 
 _ = Ide.gettext
@@ -106,13 +106,15 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
     def _on_load_pyproject_toml(self, project_file, result, task):
         """Load and parse the pyproject.toml file.
 
-        If the pyproject.toml file is absent, or the build-backend key is missing,
-        the source tree is not using Pep 517 specification. Tools should revert
-        to the legacy behaviour of running setup.py (either directly,
-        or by implicitly invoking the setuptools.build_meta:__legacy__ backend).
-        Where the build-backend key exists, this takes precedence and the source
-        tree follows the format and conventions of the specified backend
-        (as such no setup.py is needed unless the backend requires it).
+        If the pyproject.toml file is absent, or the build-backend
+        key  is missing, the source tree is not using Pep 517
+        specification. Tools should revert to the legacy behaviour
+        of running setup.py  (either directly, or by implicitly invoking
+        the setuptools.build_meta:__legacy__ backend).
+        Where the build-backend key exists, this takes precedence
+        and the source tree follows the format and conventions
+        of the specified backend (as such no setup.py is needed unless
+        the backend requires it).
         """
 
         try:
@@ -127,10 +129,14 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
             task.return_error(err)
             return
 
-        if "build-system" not in py_project \
-            or not isinstance(py_project["build-system"], dict) \
-            or "build-backend" not in py_project["build-system"] \
-            or not isinstance(py_project["build-system"]["build-backend"], str):
+        if (
+            "build-system" not in py_project
+            or not isinstance(py_project["build-system"], dict)
+            or "build-backend" not in py_project["build-system"]
+            or not isinstance(
+                py_project["build-system"]["build-backend"], str
+            )
+        ):
             # Not a PEP 517 python project
             task.return_error(
                 GLib.Error(
@@ -165,7 +171,7 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
         Returns(str): a string containing the project version
         """
         # TODO: do_get_project_version()
-        return None
+        return
 
     def do_build_system_supports_language(self, language):
         """Say if this BuilSystem support 'language'.
@@ -210,20 +216,32 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
         Args:
             file(pathlib.Path): the artifact to register.
         """
-        if file.is_dir() \
-           and BuildType.TREE in self.props.build_backend.get_build_types():
+        if(
+            file.is_dir() and BuildType.TREE
+            in self.props.build_backend.get_build_types()
+        ):
             self.props.builds[file.name] = BuildType.TREE
-        elif file.suffix == ".egg" \
-             and BuildType.EGG in self.props.build_backend.get_build_types():
+        elif(
+              file.suffix == ".egg" and BuildType.EGG
+              in self.props.build_backend.get_build_types()
+        ):
             self.props.builds[file.name] = BuildType.EGG
-        elif file.suffix == ".whl" \
-             and BuildType.WHEEL in self.props.build_backend.get_build_types():
+        elif(
+             file.suffix == ".whl" and BuildType.WHEEL
+             in self.props.build_backend.get_build_types()
+        ):
             self.props.builds[file.name] = BuildType.WHEEL
         # FIXME: valid suffixes for sdist?
-        elif file.suffix in [".gz", ".tar", ".zip"] \
-             and BuildType.SDIST in self.props.build_backend.get_build_types():
+        elif(
+             file.suffix in [".gz", ".tar", ".zip"]
+             and BuildType.SDIST
+             in self.props.build_backend.get_build_types()
+        ):
             self.props.builds[file.name] = BuildType.SDIST
-        elif BuildType.FILE in self.props.build_backend.get_build_types():
+        elif(
+             BuildType.FILE in
+             self.props.build_backend.get_build_types()
+        ):
             self.props.builds[file.name] = BuildType.FILE
 
     def clean_builds(self):
@@ -285,10 +303,12 @@ class Python517BuildSystem(Ide.Object, Ide.BuildSystem, Gio.AsyncInitable):
         os_virtual_env = os.environ.get("VIRTUAL_ENV")
 
         if virtual_env or os_virtual_env:
-            virtual_env = Path(virtual_env) if virtual_env else Path(os_virtual_env)
+            virtual_env = (
+                Path(virtual_env) if virtual_env else Path(os_virtual_env)
+            )
             if not virtual_env.is_absolute():
-                 cwd = Path(context.ref_workdir().get_path())
-                 virtual_env = cwd / virtual_env
+                cwd = Path(context.ref_workdir().get_path())
+                virtual_env = cwd / virtual_env
             if virtual_env.is_dir():
                 print(f"Updating venv in {virtual_env.absolute()}")
                 builder = venv.EnvBuilder(upgrade=True, with_pip=True)
@@ -386,7 +406,7 @@ class Python517BuildTarget(Ide.Object, Ide.BuildTarget):
         """
         if self.props.virtual_env:
             _argv = self.argv.copy()
-            _argv[0] =  f"{self.props.virtual_env}/bin/{_argv[0]}"
+            _argv[0] = f"{self.props.virtual_env}/bin/{_argv[0]}"
             return _argv
         return self.argv
 
@@ -492,42 +512,42 @@ class Python517BuildTargetProvider(Ide.Object, Ide.BuildTargetProvider):
                 else:
                     _venv = virtual_env
                 task.targets.append(Python517BuildTarget(
-                    name = name,
-                    action = "wheel",
-                    priority = 100,
-                    virtual_env = _venv,
-                    argv = cmd
+                    name=name,
+                    action="wheel",
+                    priority=100,
+                    virtual_env=_venv,
+                    argv=cmd
                 ))
             # TODO: what about different frontend than pip
             if kind in [BuildType.SDIST, BuildType.WHEEL]:
                 task.targets.append(Python517BuildTarget(
-                    name = name,
-                    action = "install",
-                    priority = 200,
-                    virtual_env = virtual_env,
-                    argv = ["python", "-m", "pip",
-                            "install", f"{build_dir}/{file}"]
+                    name=name,
+                    action="install",
+                    priority=200,
+                    virtual_env=virtual_env,
+                    argv=["python", "-m", "pip",
+                          "install", f"{build_dir}/{file}"]
                 ))
                 task.targets.append(Python517BuildTarget(
-                    name = name,
-                    action = "uninstall",
-                    priority = 400,
-                    virtual_env = virtual_env,
-                    argv = ["python", "-m", "pip",
-                            "uninstall", name]
+                    name=name,
+                    action="uninstall",
+                    priority=400,
+                    virtual_env=virtual_env,
+                    argv=["python", "-m", "pip",
+                          "uninstall", name]
                 ))
             if kind in [BuildType.TREE]:
                 task.targets.append(Python517BuildTarget(
-                    name = name,
-                    action = "install editable",
-                    priority = 200,
-                    virtual_env = virtual_env,
-                    argv = ["python", "-m", "pip",
-                            "install", '-e', file]
+                    name=name,
+                    action="install editable",
+                    priority=200,
+                    virtual_env=virtual_env,
+                    argv=["python", "-m", "pip",
+                          "install", '-e', file]
                 ))
 
         # TODO: adding run target for console script entry point
-        #task.targets = [build_system.ensure_child_typed(Python517BuildTarget)]
+        # task.targets = [build_system.ensure_child_typed(Python517BuildTarget)]
         task.return_boolean(True)
 
     def do_get_targets_finish(self, result):

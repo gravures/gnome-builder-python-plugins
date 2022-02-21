@@ -17,8 +17,8 @@
 #       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #       MA 02110-1301, USA.
 #
-from enum import Enum
 from abc import ABC, abstractmethod
+from enum import Enum
 
 
 class BuildType(Enum):
@@ -90,7 +90,7 @@ class Python517BuildBackend(ABC):
 
         Returns(list): a list containing the arguments to run or None.
         """
-        return None
+        return
 
     @abstractmethod
     def has_isolation(self):
@@ -119,16 +119,14 @@ class PypaBuildBackend(Python517BuildBackend):
                 "build",
                 "--sdist",
                 "--outdir",
-                self.get_builddir_name(),
-        ]
+                self.get_builddir_name()]
 
     def get_wheel_cmd(self):
         return ["python",
                 "-m",
                 "build",
                 "--outdir",
-                self.get_builddir_name(),
-        ]
+                self.get_builddir_name()]
 
     def has_isolation(self):
         return True
