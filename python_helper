@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+import argparse
+import os
+import subprocess
+import sys
+import venv
+from distutils import version
+from importlib import import_module
+from pathlib import Path
+
+
+def compare_version(_version, required):
+    _version = version.LooseVersion(_version)
+    required = version.LooseVersion(required)
+    return _version >= required
+
+
+def check_requirement(options):
+    dist = options.package
+    required = options.version
+    try:
+        _module = import_module(dist)
+        _version = _module.__version__
+    except ImportError:
+        sys.stderr.write(f"No package {dist} found...\n")
+        sys.exit(1)
+    else:
+        if required is None:
+            print(str(_version))
+            sys.exit(0)
+        if compare_version(_version, required):
+            print(str(_version))
+            sys.exit(0)
+        else:
+            sys.stderr.write(f"Error requiring {dist} {required} found.\n")
+            print(str(_version))
+            sys.exit(1)
+
+
+def get_python_version():
+    major = sys.version_info[0]
+    minor = sys.version_info[1]
+    return f"python{major}.{minor}"
+
+
+def get_site_package(folder):
+    return Path(folder) / "lib" / get_python_version() / "site-packages"
+
+
+def check_target(target):
+    target = Path(target)
+    target_site_pkg = get_site_package(target)
+    if not target_site_pkg.is_dir():
+        print(
+            f"Target path '{target}' has not a "
+            "valid site-packages sub-directory.",
+            file=sys.stderr
+        )
+        sys.exit(1)
+    return target_site_pkg
+
+
+def create_venv(options):
+    target = check_target(options.target)
+    builder = venv.EnvBuilder(
+        system_site_packages=False,
+        symlinks=True,
+        with_pip=False,
+        upgrade_deps=False,
+    )
+    try:
+        venv_site_pkg = get_site_package(options.envdir)
+        if not venv_site_pkg.is_symlink():
+            builder.create(options.envdir)
+            os.rmdir(venv_site_pkg)
+            os.symlink(
+                src=target,
+                dst=venv_site_pkg,
+                target_is_directory=True
+            )
+    except Exception as err:
+        msg = (
+            f"    {err} (at line {err.__traceback__.tb_lineno} "
+        )
+        print(
+            f"Error creating venv({type(err).__name__}): \n{msg}",
+            file=sys.stderr
+        )
+        sys.exit(1)
+    else:
+        print(options.envdir, file=sys.stdout)
+
+
+def install_package(options):
+    if options.target == ":user":
+        args = ["pip", "install", options.package, "--user"]
+    else:
+        target = check_target(options.target)
+        args = [
+            "pip", "install", "--upgrade", options.package, "-t", str(target)
+        ]
+    cp = subprocess.run(args, shell=False)
+    if cp.returncode:
+        print(cp.stderr, cp.stdout, file=sys.stderr)
+        sys.exit(1)
+    else:
+        print(cp.stdout)
+        sys.exit(0)
+
+
+def main():
+    parser = argparse.ArgumentParser(exit_on_error=False)
+    commands = parser.add_subparsers(
+        title="subcommands",
+        help="subcommand help: <subcommand> -h",
+        required=True,
+    )
+
+    #
+    # Require subparser
+    require_cmd = commands.add_parser(
+        "require",
+        help="check a python package installation."
+    )
+    require_cmd.add_argument(
+        "package",
+        action="store",
+        help="a python package name to look for",
+    )
+    require_cmd.add_argument(
+        "version",
+        action="store",
+        nargs='?',
+        default=None,
+        help="an optional version string as a minimum required version"
+    )
+    require_cmd.set_defaults(func=check_requirement)
+
+    #
+    # Venv subparser
+    venv_cmd = commands.add_parser(
+        "venv",
+        help=(
+            "Create a 'special' virtual env against an existing directory. "
+            "An empty venv directory will be created and its site-package "
+            "will be replace by a link to the existing directory passed "
+            "as argument. Path to the newly created venv will be printed "
+            "out on stdout."
+        ),
+    )
+    venv_cmd.add_argument(
+        "target",
+        action="store",
+        help="An absolute or relative path pointing to an existing directory"
+    )
+    venv_cmd.add_argument(
+        "envdir",
+        action="store",
+        nargs="?",
+        default=".venv",
+        help="the name of the virtual env directory to create"
+    )
+    venv_cmd.set_defaults(func=create_venv)
+
+    #
+    # install subparser
+    install_cmd = commands.add_parser(
+        "install",
+        help="Install a python package for the specified container directory.",
+    )
+    install_cmd.add_argument(
+        "package",
+        action="store",
+        help="the python package to install",
+    )
+    install_cmd.add_argument(
+        "target",
+        action="store",
+        help="the target container directory where package should be installed",
+    )
+    install_cmd.set_defaults(func=install_package)
+
+    try:
+        options = parser.parse_args()
+        options.func(options)
+    except TypeError:
+        parser.print_help()
+        sys.exit(1)
+    except (argparse.ArgumentError, argparse.ArgumentTypeError) as err:
+        print(f"Error: {err}", file=sys.stderr)
+        sys.exit(1)
+    else:
+        sys.exit(0)
+
+
+if __name__ == '__main__':
+    main()
