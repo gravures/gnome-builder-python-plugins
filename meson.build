@@ -10,7 +10,6 @@ plugins_list = get_option('plugins')
 
 # Requirements python modules that are required by our plugins
 python_requires = {}
-install_py = get_option('install-python-requirements')
 
 
 # plugin obviously depends on gnome-builder
@@ -103,7 +102,7 @@ foreach key_module, require : python_requires
         	msg_out = 'Find python package @0@=@1@@2@, but require version=@3@'.format(module, ret.stdout().strip(), msg, require)
         endif  # end format msg
 
-        if install_py
+        if get_option('pip')
         	message(msg_out)
 	    	ret = run_command(
 	    		python_helper,

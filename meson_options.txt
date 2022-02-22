@@ -15,8 +15,8 @@ option('plugins',
 		 'python-symbols'],
 	description : 'A comma separated list of plugins to install, default to all'
 )
-option('install-python-requirements',
+option('pip',
 	type : 'boolean',
 	value : false,
-	description : 'Install python-plugins requirements'
+	description : 'Install python-plugins requirements with pip'
 )
