@@ -1,5 +1,5 @@
 # Requirements
-requires += ['isort=5.0']
+requires += ['usr:isort=5.0']
 
 # sub directory instalation
 plugindir = 'python-isort'

@@ -10,11 +10,14 @@ plugins_list = get_option('plugins')
 
 # Requirements python modules that are required by our plugins
 python_requires = {}
+install_py = get_option('install-python-requirements')
 
 
 # plugin obviously depends on gnome-builder
 builder_required_version='3.32'
+python_helper = find_program('python_helper', required: true)
 gnome_builder = find_program('gnome-builder', required: true)
+
 if not gnome_builder.found()
 	error('Error: gnome-builder not found')
 else
@@ -48,14 +51,26 @@ message('Configure build for ABI version @0@'.format(abi_version))
 prefix = get_option('prefix')
 datadir = join_paths(prefix, get_option('datadir'))
 builder_plugindir = join_paths(datadir, 'gnome-builder/plugins')
+flatpak = 'flatpak/app/org.gnome.Builder/current/active/files/'
+flatpakdir = join_paths(datadir, flatpak)
+
+
 if get_option('flatpak')
-	flatpak = join_paths(datadir, 'flatpak/app/org.gnome.Builder/current/active/files/')
-	scriptdir = join_paths(flatpak, get_option('bindir'))
-	schemas_dir = join_paths(flatpak, get_option('datadir'), 'glib-2.0/schemas')
-	message('Will install gnome-builder preferences for flatpak')
+	scriptdir = join_paths(flatpakdir, get_option('bindir'))
+	schemas_dir = join_paths(flatpakdir, get_option('datadir'), 'glib-2.0/schemas')
+	message('Will install gnome-builder plugins for flatpak...')
+	ret = run_command(python_helper, 'venv', flatpakdir)
+	if ret.returncode() == 1
+		error('Failed to create vrtual env')
+	else
+		message('Created a virtual env for python requirements testing in flatpak')
+	endif
+	venv = join_paths(ret.stdout().strip(), 'bin/python')
+	flk_msg = ' in flatpak container'
 else
 	scriptdir = join_paths(prefix, get_option('bindir'))
 	schemas_dir = join_paths(datadir, 'glib-2.0/schemas')
+	flk_msg = ''
 endif
 
 
@@ -66,26 +81,56 @@ subdir('src')
 
 
 # check python required dependency
-foreach module, require : python_requires
-	ret = run_command(files('check_python_dep'), module, require)
-    if ret.returncode() != 0
-    	if ret.stderr() == ''
-        	error('Failed to find required python module @0@'.format(module))
-        else
-        	error('Find python module @0@=@1@, but require version=@2@'.format(module, ret.stderr(), require))
-        endif
+foreach key_module, require : python_requires
+	desc = key_module.split(':')
+	key = desc[0]
+	module = desc[1]
+	msg = ''
+	flk_inst = ':user'
+
+	if key == 'flk' and get_option('flatpak')
+		msg = flk_msg
+		flk_inst = flatpakdir
+		ret = run_command(venv, 'python_helper', 'require', module, require)
 	else
-		message('Founded python module @0@=@1@'.format(module, ret.stdout().strip()))
-    endif
+		ret = run_command(python_helper, 'require', module, require)
+	endif  # end check package
+
+    if ret.returncode() != 0
+    	if ret.stdout() == ''
+        	msg_out = 'Failed to find required python package @0@@1@'.format(module, msg)
+        else
+        	msg_out = 'Find python package @0@=@1@@2@, but require version=@3@'.format(module, ret.stdout().strip(), msg, require)
+        endif  # end format msg
+
+        if install_py
+        	message(msg_out)
+	    	ret = run_command(
+	    		python_helper,
+	    		'install',
+	    		'@0@>=@1@'.format(module, require),
+	    		flk_inst
+	    	)
+	    	if ret.returncode() == 1
+	    		message(ret.stderr())
+				error('Failed to install @0@@1@'.format(module, msg))
+			else
+				message(ret.stdout().strip())
+				message('package @0@ successfully installed@1@'.format(module, msg))
+			endif
+		else
+		    error(msg_out)
+		endif  # end if install
+    else
+		message(
+		    'Found python package @0@=@1@@2@'.format(module, ret.stdout().strip(),
+		    msg)
+		)
+    endif  # end if returncode
 endforeach
 
 
 #
 meson.add_install_script('glib-compile-schemas', schemas_dir)
-
-
-
-
-
 
 

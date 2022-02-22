@@ -1,9 +1,9 @@
 # Requirements
-requires += ['setuptools=52.0',
-             'build=0.1.0',
-             'pip=20.3',
-             'tomli=1.2',
-             'packaging=20.9']
+requires += ['usr:setuptools=52.0',
+             'usr:build=0.1.0',
+             'usr:pip=20.3',
+             'flk:tomli=1.2',
+             'flk:packaging=20.9']
 
 # sources files
 py_src = ['python_517_build_plugin.py',

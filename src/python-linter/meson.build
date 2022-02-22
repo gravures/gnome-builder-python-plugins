@@ -1,5 +1,5 @@
 # Requirements
-requires += ['pylint=2.12']
+requires += []
 
 # sub directory installation
 plugindir = 'python-linter'
