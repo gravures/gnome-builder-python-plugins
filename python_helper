@@ -106,7 +106,12 @@ def install_package(options):
         print(cp.stderr, cp.stdout, file=sys.stderr)
         sys.exit(1)
     else:
-        print(cp.stdout)
+        out = ""
+        if cp.stderr is not None:
+            out += cp.stderr
+        if cp.stdout is not None:
+            out += cp.stdout
+        print(out)
         sys.exit(0)
 
 
