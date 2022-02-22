@@ -2,7 +2,7 @@
 
 ## About
 
-A set of **gnome-builder** extensions for Python development.
+This project is a set of **gnome-builder** extensions targeted at Python development.
 
 * **python-517** (a pep-517 build system)
 
@@ -45,41 +45,35 @@ $ meson compile -C build
 $ meson install -C build
 ```
 
-## Install only specific plugins
+## Configurable options
 
-You can specify with the -Dplugins configure option a list of plugin(s) to install:
+##### Install python requirements for plugins
+
+Use the **-Dpip=true** option to install python requirements. If you have a gnome-builder not running in isolation (not a flatpak), this will pip install all the requirements with the --user option in your personnal site-packages.  Otherwise if you use a flapak distribution, requirements that need to be imported by plugins will install in the gnome-builder flatpak, and ones that will be run as command will install in your personnal site-packages.
+
+```
+$ meson build --prefix=~/.local -Dpip=true
+```
+
+##### Install only specific plugins
+
+You can specify with the **-Dplugins=true** configure option a list of plugin(s) to install:
 
 ```
 $ meson build --prefix=~/.local -Dplugins=python-linter,python-517-build
 ```
 
-## Flatpak specific installation
+##### Flatpak specific installation
 
-To install plugins for your gnome-builder flatpak's distribution use the -Dflatpak option:
+To install plugins for a gnome-builder flatpak's distribution use the **-Dflatpak=true** option:
 
 ```
-$ meson build --prefix=~/.local -Dflatpak=true
+$ meson build --prefix=~/.local -Dflatpak=true -Dpip=true
 $ meson compile -C build
 $ meson install -C build
 ```
 
-Note: this will only install certains files to the flatpak container (because thoses files can't be share with user space)
-
-You will need to install some python packages in the flatpak container, currently those packages will be *packaging* and *tomli* for the python-517 plugin.
-
-To show Python installed packages in your gnome-builder flatpak's distribution:
-
-```
-$ pip freeze --path ~/.local/share/flatpak/app/org.gnome.Builder/current/active/files/lib/python3.9/site-packages
-```
-
-To install or upgrade a specific Python requirement to your gnome-builder flatpak's distribution:
-
-```
-pip install packaging>=20.9 --upgrade -t ~/.local/share/flatpak/app/org.gnome.Builder/current/active/files/lib/python3.9/site-packages
-```
-
-Note: pip does not permit to uninstall package in a custom directory, if you want to remove thoses packages you should do it manually. 
+Note: this will only install certains files to the flatpak container (because thoses files can't be share with user space). 
 
 ## python-517 plugin
 
@@ -103,11 +97,13 @@ Provide integration with [PyLint](https://pylint.org/) and [Flake8](https://flak
 * pylint >= 2.12
 * *or* flake8
 
-None of those linter requirements are mandatory, the plugin will check at runtime witch linter is available. You can select the linter to use in the preferences window. You can even install a new linter when builder is running (you have to close and open again the preferences window to show the new linter). For flatpack you don't have to install any linter in the gnome-builder container, instead just install as usual:
+None of those linter requirements are mandatory (they wil not be installed by the **-Dpip=true** option), the plugin will check at runtime witch linter is available. You can select the linter to use in the preferences window. You can even install a new linter when builder is running (you have to close and open again the preferences window to show the new linter). For flatpack you don't have to install any linter in the gnome-builder flatpak, instead just install as usual your prefered linter:
 
 ```
 $ pip install flake8 --user
 ```
+
+Of course you could install any linter's extensions you want. There is no special configurations in the preferences ui for the linters, consult linter's documentation to learn how to customize behaviours.
 
 ## python-isort plugin
 
@@ -119,7 +115,7 @@ Add an entry in the source view menu to sort import statements with [isort](http
 
 - isort >= 5.0
 
-For flatpack you don't have to install isort in the gnome-builder container, instead just install as usual.
+For flatpack you don't have to install isort in the gnome-builder container, instead just install as usual or use the **-Dpip=true** option.
 
 ## python-symbols plugin
 
