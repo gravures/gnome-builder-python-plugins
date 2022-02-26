@@ -118,7 +118,7 @@ class PythonSymbolNode(Ide.SymbolNode):
 class PythonSymbolTree(GObject.Object, Ide.SymbolTree):
 
     @debug
-    def __init__(self, file: Gio.File, parser: str, context: Ide.Context):
+    def __init__(self, file: Gio.File):
         """Visit the ast.Module ast_module recursivly
         and return the tree's root as a PythonSymbolNode
         of Kind Ide.SymbolKind.PACKAGE.
@@ -135,15 +135,15 @@ class PythonSymbolTree(GObject.Object, Ide.SymbolTree):
             file=file
         )
 
-        if parser == "AST":
+        parser = gsettings.get_string("symbol-parser")
+        if parser == "ast":
             self.syntax_tree = AstSyntaxNode(
                 file,
-                context=context,
                 xprt_impts=gsettings.get_boolean("export-imports"),
                 xprt_mod_var=gsettings.get_boolean("export-modules-variables"),
                 xprt_cls_var=gsettings.get_boolean("export-class-variables"),
             )
-        elif parser == "PARSO":
+        elif parser == "parso":
             self.syntax_tree = ParsoSyntaxNode(
                 file,
                 xprt_impts=gsettings.get_boolean("export-imports"),
@@ -329,7 +329,7 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
             if not context:
                 task.return_boolean(False)
                 return
-            task.symbol_tree = PythonSymbolTree(file, parser, context)
+            task.symbol_tree = PythonSymbolTree(file)
             # log.debug(f"{task.symbol_tree.dump()}")
         except SyntaxNodeError as err:
             log.debug(f"{err}")

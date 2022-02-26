@@ -91,6 +91,20 @@ class PythonSymbolsPreferencesAddin(GObject.Object, Ide.PreferencesAddin):
             )
         )
 
+        for index, parser in enumerate(["ast", "parso"]):
+            self._ids.append(prefs.add_radio(
+                "python-plugins",
+                "python-symbols",
+                "org.gnome.builder.plugins.python-symbols",
+                "symbol-parser",
+                None,
+                f"\"{parser}\"",
+                _(f"{parser.capitalize()}"),
+                _(f"Use {parser} as python symbol parser"),
+                _(f"{parser}"),
+                40 + index,
+            ))
+
     def do_unload(self, preferences):
         """This interface method is called when the preferences addin
         should remove all controls added to preferences. This could

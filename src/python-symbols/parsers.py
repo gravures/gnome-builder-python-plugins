@@ -136,6 +136,7 @@ class ParsoSyntaxNode(SyntaxNode):
             self._name = self.source.name.value
             self._line, self._col = self.source.start_pos
             self._children = list(self.source.get_suite().children)
+
         elif self.source.type == 'funcdef':
             self._kind = (
                 Ide.SymbolKind.METHOD
@@ -145,6 +146,8 @@ class ParsoSyntaxNode(SyntaxNode):
             self._name = self.source.name.value
             self._line, self._col = self.source.start_pos
             self._children = list(self.source.get_suite().children)
+
+        # FIXME: simple import not exported
         elif self.source.type == 'simple_stmt':
             self.source = self.source.children[0]
             if self.source.type in ('import_names', 'import_from'):

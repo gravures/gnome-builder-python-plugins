@@ -2,6 +2,15 @@
   <schema id="org.gnome.builder.plugins.python-symbols"
           path="/org/gnome/builder/plugins/python-symbols/"
           gettext-domain="gnome-builder">
+    <key name="symbol-parser" type="s">
+      <choices>
+        <choice value='ast'/>
+        <choice value='parso'/>
+      </choices>
+      <default>'ast'</default>
+      <summary>Python symbol parser</summary>
+      <description>The actual python parser in use.</description>
+    </key>
     <key name="export-imports" type="b">
       <default>true</default>
       <summary>Export imports as symbols</summary>
