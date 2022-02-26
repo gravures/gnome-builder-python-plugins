@@ -7,5 +7,5 @@ Hidden=false
 Module=python_symbols_plugin
 Depends=editor;
 X-Symbol-Resolver-Languages-Priority=100
-X-Symbol-Resolver-Languages=python3
+X-Symbol-Resolver-Languages=python3;cython
 X-Builder-ABI=@PACKAGE_ABI@

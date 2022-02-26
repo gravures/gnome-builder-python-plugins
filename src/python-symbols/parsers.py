@@ -76,6 +76,7 @@ class SyntaxNode(ABC):
             instance._is_root = False
         return instance
 
+    @abstractmethod
     def __init__(self, source, *args, parent=None, **kwargs):
         self.parent = parent
         self._kind = None
@@ -116,7 +117,6 @@ class SyntaxNode(ABC):
 class ParsoSyntaxNode(SyntaxNode):
     """ParsoSyntaxNode"""
 
-    @debug
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -157,6 +157,8 @@ class ParsoSyntaxNode(SyntaxNode):
                 )
             self._line, self._col = self.source.start_pos
 
+        # TODO: module variable & class variable
+
     @classmethod
     def _source_from_file(cls, file, **kwargs):  # noqa
         try:
@@ -177,6 +179,7 @@ class ParsoSyntaxNode(SyntaxNode):
         return max(self._line - 1, 0)
 
     def dump(self):
+        # TODO: dump method
         pass
 
 

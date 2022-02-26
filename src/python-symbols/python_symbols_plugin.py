@@ -304,11 +304,22 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
         """Asynchronously fetch an up to date symbol tree for @file."""
         task = Gio.Task.new(self, cancellable, callback)
         task.root_task = user_data
-        parser = "PARSO"  # "AST"
+
+        gsettings = Gio.Settings(
+            schema="org.gnome.builder.plugins.python-symbols"
+        )
+        parser = gsettings.get_string("symbol-parser")
+        context = self.get_context()
+        buf_man = Ide.BufferManager.from_context(context)
+        buffer = buf_man.find_buffer(file)
+        lang = buffer.get_language_id()
+        if lang == "cython" and parser == "ast":
+            task.return_boolean(False)
+            return
 
         threading.Thread(
             target=self._inspect_module,
-            args=(task, file, parser),
+            args=(task, file),
             name='python-symbols-thread'
         ).start()
 
@@ -323,7 +334,7 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
         return None
 
     @debug
-    def _inspect_module(self, task: Gio.Task, file: Gio.File, parser: str):
+    def _inspect_module(self, task: Gio.Task, file: Gio.File):
         try:
             context = self.get_context()
             if not context:
