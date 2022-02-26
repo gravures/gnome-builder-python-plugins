@@ -6,7 +6,8 @@ plugindir = 'python-symbols'
 
 # sources files
 py_src = ['python_symbols_plugin.py',
-	  'symbols_preferences.py']
+		  'parsers.py',
+     	  'symbols_preferences.py']
 
 configure_file(
 	input: files('python_symbols.plugin.in'),
