@@ -25,7 +25,7 @@ else
 	if ret.stdout() == ''
 		error('can not obtain gnome-builder version.')
 	endif
-	builder_version = ret.stdout().split().get(2)
+	builder_version = ret.stdout().split()[-1]
 	if builder_version.version_compare('<' + builder_required_version)
         error('need at least version 3.38 of gnome-builder\ninstalled version=@0@'.format(builder_version))
     else
