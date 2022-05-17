@@ -153,6 +153,7 @@ class PythonSymbolTree(GObject.Object, Ide.SymbolTree):
         else:
             raise SyntaxNodeError(f"{parser} not a SyntaxParser")
 
+        log.debug(self.syntax_tree.dump())
         for syntax_node in self.syntax_tree.iter_child_nodes():
             self._visit_syntax_node(syntax_node, self.root_node, file)
 
@@ -219,13 +220,13 @@ class PythonSymbolTree(GObject.Object, Ide.SymbolTree):
 class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
     """PythonSymbolProvIder."""
 
-    @debug
-    def do_load(self) -> None:
-        pass
+    # @debug
+    # def do_load(self) -> None:
+    #     pass
 
-    @debug
-    def do_unload(self) -> None:
-        pass
+    # @debug
+    # def do_unload(self) -> None:
+    #     pass
 
     @debug
     def do_lookup_symbol_async(
@@ -343,7 +344,7 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
             task.symbol_tree = PythonSymbolTree(file)
             # log.debug(f"{task.symbol_tree.dump()}")
         except SyntaxNodeError as err:
-            log.debug(f"{err}")
+            log.exception("SyntaxNodeError")
             task.return_error(GLib.Error(str(err)))
         else:
             task.return_boolean(True)

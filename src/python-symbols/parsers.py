@@ -30,6 +30,7 @@ from pathlib import Path
 import gi  # noqa
 from gi.repository import Gio, GLib, Ide
 
+import cyparso
 import parso
 
 log = logging.getLogger(__name__)
@@ -131,13 +132,13 @@ class ParsoSyntaxNode(SyntaxNode):
             self.decorators = self.source.children[:-1]
             self.source = self.source.children[-1]
 
-        if self.source.type == 'classdef':
+        if self.source.type in ('classdef', 'cclassdef'):
             self._kind = Ide.SymbolKind.CLASS
             self._name = self.source.name.value
             self._line, self._col = self.source.start_pos
             self._children = list(self.source.get_suite().children)
 
-        elif self.source.type == 'funcdef':
+        elif self.source.type in ('funcdef', 'cfuncdef'):
             self._kind = (
                 Ide.SymbolKind.METHOD
                 if self.parent._kind is Ide.SymbolKind.CLASS
@@ -164,7 +165,7 @@ class ParsoSyntaxNode(SyntaxNode):
         try:
             with open(file.get_path(), "r") as _file:
                 data = _file.read()
-            source = parso.parse(data)
+            source = cyparso.parse(data)
         except IOError as err:
             raise SyntaxNodeError(f"Failed to open stream: {err}")
         except Exception as err:
@@ -179,8 +180,24 @@ class ParsoSyntaxNode(SyntaxNode):
         return max(self._line - 1, 0)
 
     def dump(self):
-        # TODO: dump method
-        pass
+        dump = str(self.source)
+        dump += "\n"
+        if not isinstance(self.source, parso.tree.BaseNode):
+            return dump
+        for child in self.source.children:
+            dump = self._dump_node(child, dump, 1)
+        return dump
+
+    @classmethod
+    def _dump_node(cls, node, dump="", indent=0):
+        _ind = "".join(["  "] * indent)
+        dump += f"{_ind}{str(node)}\n"
+        indent += 1
+        if not isinstance(node, parso.tree.BaseNode):
+            return dump
+        for child in node.children:
+            dump = cls._dump_node(child, dump, indent)
+        return dump
 
 
 EXPORT_VARIABLE_SCOPE = [Ide.SymbolKind.PACKAGE, Ide.SymbolKind.CLASS]

@@ -38,3 +38,10 @@ install_data(
   	install_dir: schemas_dir
 )
 
+sites_dir = join_paths(flatpakdir, 'lib/python3.9/site-packages')
+install_subdir(
+	'cyparso',
+	install_dir: sites_dir,
+	strip_directory: false
+)
+
