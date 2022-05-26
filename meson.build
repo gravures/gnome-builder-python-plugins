@@ -15,22 +15,35 @@ python_requires = {}
 # plugin obviously depends on gnome-builder
 builder_required_version='3.32'
 python_helper = find_program('python_helper', required: true)
-gnome_builder = find_program('gnome-builder', required: true)
+printed_version = ''
 
-if not gnome_builder.found()
-	error('Error: gnome-builder not found')
-else
-	message('Gnome-builder path: @0@'.format(gnome_builder.full_path()))
-	ret = run_command(gnome_builder, '--version')
-	if ret.stdout() == ''
-		error('can not obtain gnome-builder version.')
+if get_option('flatpak')
+	ret = run_command('flatpak', 'info', 'org.gnome.Builder')
+	if ret.stderr() != ''
+		error('can not find gnome-builder in flatpak installed applicatons.')
+	else
+		message('Gnome-builder found in flatpak installed applicatons.')
+		printed_version = run_command('flatpak', 'run', 'org.gnome.Builder', '--version').stdout()
 	endif
-	builder_version = ret.stdout().split()[-1]
+else
+	gnome_builder = find_program('gnome-builder', required: true)
+	if not gnome_builder.found()
+		error('Error: gnome-builder not found')
+	else
+		message('Gnome-builder path: @0@'.format(gnome_builder.full_path()))
+		printed_version = run_command(gnome_builder, '--version').stdout()
+	endif
+endif
+
+if printed_version == ''
+	error('can not obtain gnome-builder version.')
+else
+	builder_version = printed_version.split()[-1]
 	if builder_version.version_compare('<' + builder_required_version)
-        error('need at least version 3.38 of gnome-builder\ninstalled version=@0@'.format(builder_version))
-    else
-    	message('gnome-builder version=@0@'.format(builder_version))
-    endif
+	    error('need at least version 3.38 of gnome-builder\ninstalled version=@0@'.format(builder_version))
+	else
+		message('gnome-builder version=@0@'.format(builder_version))
+	endif
 endif
 
 
