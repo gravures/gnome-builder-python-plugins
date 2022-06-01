@@ -1,5 +1,5 @@
 project('gnome-builder-python-plugins',
-         version: '1.2',
+         version: '0.1.2',
          license: 'GPL-3.0-or-later',
     	 meson_version: '>= 0.55.0',
 )
