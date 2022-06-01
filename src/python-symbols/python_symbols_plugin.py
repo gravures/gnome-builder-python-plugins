@@ -350,6 +350,7 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
         context = self.get_context()
         srcdir = context.ref_workdir().get_path()
         launcher = Ide.SubprocessLauncher()
+        launcher.set_run_on_host(True)
         launcher.set_flags(Gio.SubprocessFlags.STDOUT_PIPE)
         launcher.set_cwd(srcdir)
 
