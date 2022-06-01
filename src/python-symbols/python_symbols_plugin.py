@@ -306,17 +306,17 @@ class PythonSymbolProvider(Ide.Object, Ide.SymbolResolver):
         task = Gio.Task.new(self, cancellable, callback)
         task.root_task = user_data
 
-        gsettings = Gio.Settings(
-            schema="org.gnome.builder.plugins.python-symbols"
-        )
-        parser = gsettings.get_string("symbol-parser")
-        context = self.get_context()
-        buf_man = Ide.BufferManager.from_context(context)
-        buffer = buf_man.find_buffer(file)
-        lang = buffer.get_language_id()
-        if lang == "cython" and parser == "ast":
-            task.return_boolean(False)
-            return
+        # gsettings = Gio.Settings(
+        #     schema="org.gnome.builder.plugins.python-symbols"
+        # )
+        # parser = gsettings.get_string("symbol-parser")
+        # context = self.get_context()
+        # buf_man = Ide.BufferManager.from_context(context)
+        # buffer = buf_man.find_buffer(file)
+        # lang = buffer.get_language_id()
+        # if lang == "cython" and parser == "ast":
+        #     task.return_boolean(False)
+        #     return
 
         threading.Thread(
             target=self._inspect_module,

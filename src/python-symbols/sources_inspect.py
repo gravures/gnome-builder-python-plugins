@@ -90,7 +90,7 @@ def main():  # noqa
         sys.exit(1)
     else:
         try:
-            tmpdir = Path(tempfile.gettempdir())
+            tmpdir = Path.home() / ".tmp"
             _dir = tmpdir / "_pickled"
             _dir.mkdir(parents=True, exist_ok=True)
             file_path = _dir / f"_PY_{id(result)}.pickle"

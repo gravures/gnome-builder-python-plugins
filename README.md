@@ -24,7 +24,7 @@ After installation a new page in the preferences panel will be available with se
 This project uses the [meson build system](http://mesonbuild.com/). Run the following commands to clone this project and initialize the build:
 
 ```
-$ git clone https://github.com/gravure-dtp/gnome-builder-python-plugins.git
+$ git clone https://github.com/gravures/gnome-builder-python-plugins.git
 $ cd gnome-builder-python-plugins
 $ meson build --prefix=~/.local
 ```

@@ -1,11 +1,11 @@
 [Plugin]
 Name=Python Symbols Resolver
-Description=Provides a symbol resolver for Python using Python AST.
+Description=Provides a symbol resolver for Python using Python AST or Parso.
 Author=Gilles Coissac
 Loader=python3
 Hidden=false
 Module=python_symbols_plugin
 Depends=editor;
 X-Symbol-Resolver-Languages-Priority=100
-X-Symbol-Resolver-Languages=python3;cython
+X-Symbol-Resolver-Languages=python3
 X-Builder-ABI=@PACKAGE_ABI@

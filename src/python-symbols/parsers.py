@@ -30,10 +30,8 @@ from pathlib import Path
 import gi  # noqa
 from gi.repository import Gio, GLib, Ide
 
-import cyparso
 import parso
 
-log = logging.getLogger(__name__)
 log = logging.getLogger(__name__)
 log.setLevel(Ide.log_get_verbosity() * 10)
 handler = logging.StreamHandler()
@@ -165,7 +163,7 @@ class ParsoSyntaxNode(SyntaxNode):
         try:
             with open(file.get_path(), "r") as _file:
                 data = _file.read()
-            source = cyparso.parse(data)
+            source = parso.parse(data)
         except IOError as err:
             raise SyntaxNodeError(f"Failed to open stream: {err}")
         except Exception as err:

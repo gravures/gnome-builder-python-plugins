@@ -1,5 +1,5 @@
 # Requirements
-requires += []
+requires += ['flk:parso=0.8.1']
 
 # sub directory installation
 plugindir = 'python-symbols'
@@ -38,10 +38,4 @@ install_data(
   	install_dir: schemas_dir
 )
 
-sites_dir = join_paths(flatpakdir, 'lib/python3.9/site-packages')
-install_subdir(
-	'cyparso',
-	install_dir: sites_dir,
-	strip_directory: false
-)
 
