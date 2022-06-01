@@ -18,10 +18,22 @@
 #       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #       MA 02110-1301, USA.
 #
+import logging
+
 import gi  # noqa
 from gi.repository import Gio, GLib, GObject, Ide
 
 from isort_preferences import PythonIsortPreferencesAddin  # noqa
+
+log = logging.getLogger(__name__)
+log.setLevel(Ide.log_get_verbosity() * 10)
+handler = logging.StreamHandler()
+formatter = logging.Formatter(
+    '%(asctime)-13s %(name)+49s %(levelname)+8s: %(message)s',
+    '%H:%M:%S.%04d'
+)
+handler.setFormatter(formatter)
+log.addHandler(handler)
 
 VERSION_HOOK = """import @MODULE@
 
@@ -84,8 +96,9 @@ class ISortPageAddin(Ide.Object, Ide.EditorPageAddin):
 
     def do_load(self, page: Ide.EditorPage):
         if self.props.version == "unavailable":
-            print("DEBUG: isort not found")
+            log.debug("isort not found")
             return
+        log.info(f"isort version {self.props.version}")
 
         # Register action & callback
         self.isort_action = Gio.SimpleAction.new("sort-import", None)
@@ -128,6 +141,7 @@ class ISortPageAddin(Ide.Object, Ide.EditorPageAddin):
         context = self.get_context()
         srcdir = context.ref_workdir().get_path()
         launcher = Ide.SubprocessLauncher()
+        launcher.set_run_on_host(True)
         launcher.set_flags(
             Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDIN_PIPE
         )

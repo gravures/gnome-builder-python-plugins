@@ -1,5 +1,5 @@
 # Requirements
-requires += ['flk:isort=5.0']
+requires += []
 
 # sub directory instalation
 plugindir = 'python-isort'
