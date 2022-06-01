@@ -103,6 +103,7 @@ class PythonLinterDiagnosticProvider(Ide.Object, Ide.DiagnosticProvider):
         launcher.set_flags(
             Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE
         )
+        launcher.set_run_on_host(True)
 
         # Propagate linter env variables
         config_manager = Ide.ConfigManager.from_context(context)
